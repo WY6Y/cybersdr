@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#00f5ff">
+  <meta name="description" content="CyberSDR — HF WSPR Propagation Monitor">
+  <title>CyberSDR // {{ my_call }}</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    /* ── reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080810;
+      --panel-bg:  #0d0d1a;
+      --cyan:      #00f5ff;
+      --magenta:   #ff0090;
+      --orange:    #ff6600;
+      --green:     #00ff88;
+      --yellow:    #ffcc00;
+      --red:       #ff2222;
+      --dim:       rgba(0,245,255,0.13);
+      --text:      #b0c4cc;
+      --font:      'Share Tech Mono', 'Courier New', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    /* scanline overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 9000;
+    }
+
+    /* ── header ──────────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: #060612;
+      border-bottom: 1px solid var(--cyan);
+      box-shadow: 0 0 20px rgba(0,245,255,0.15);
+      height: 52px;
+      flex-shrink: 0;
+    }
+
+    .hdr-brand h1 {
+      font-size: 18px;
+      letter-spacing: 3px;
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan), 0 0 24px rgba(0,245,255,0.5);
+    }
+    .hdr-brand .subtitle {
+      font-size: 10px;
+      letter-spacing: 4px;
+      color: rgba(0,245,255,0.55);
+      margin-top: 1px;
+    }
+
+    .hdr-right {
+      text-align: right;
+    }
+    #utc-clock {
+      font-size: 22px;
+      color: var(--cyan);
+      text-shadow: 0 0 10px var(--cyan);
+      letter-spacing: 2px;
+    }
+    .hdr-label {
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(0,245,255,0.45);
+    }
+
+    /* ── layout ──────────────────────────────────────────────────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 268px 1fr 320px;
+      grid-template-rows: 1fr;
+      gap: 8px;
+      padding: 8px;
+      height: calc(100vh - 52px);
+    }
+
+    /* ── panel ───────────────────────────────────────────────────────────── */
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--dim);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .panel-hdr {
+      padding: 6px 10px;
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--cyan);
+      border-bottom: 1px solid var(--dim);
+      background: rgba(0,245,255,0.04);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .panel-hdr::before {
+      content: '▸';
+      color: var(--magenta);
+    }
+    .panel-body {
+      padding: 10px;
+    }
+
+    /* ── left column ─────────────────────────────────────────────────────── */
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+    }
+
+    /* decoder status */
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 10px;
+      margin-bottom: 10px;
+    }
+    .stat-item label {
+      display: block;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0,245,255,0.5);
+      margin-bottom: 2px;
+    }
+    .stat-item .val {
+      font-size: 14px;
+      color: var(--cyan);
+    }
+    .stat-item .val.big {
+      font-size: 12px;
+    }
+
+    /* state badge */
+    #state-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      font-size: 12px;
+      letter-spacing: 2px;
+      border-radius: 2px;
+      border: 1px solid;
+      margin-bottom: 10px;
+      transition: all 0.3s;
+    }
+    .badge-IDLE     { background: rgba(0,245,255,0.06); color: rgba(0,245,255,0.6); border-color: rgba(0,245,255,0.25); }
+    .badge-WAITING  { background: rgba(255,204,0,0.08); color: var(--yellow); border-color: rgba(255,204,0,0.4); }
+    .badge-RECORDING {
+      background: rgba(0,255,136,0.1); color: var(--green); border-color: var(--green);
+      animation: pulse-green 1.2s ease-in-out infinite;
+    }
+    .badge-DECODING {
+      background: rgba(255,0,144,0.1); color: var(--magenta); border-color: var(--magenta);
+      animation: pulse-magenta 0.9s ease-in-out infinite;
+    }
+    .badge-UPLOADING { background: rgba(0,245,255,0.1); color: var(--cyan); border-color: var(--cyan); }
+    .badge-PAUSED   { background: rgba(255,102,0,0.1); color: var(--orange); border-color: var(--orange); }
+
+    @keyframes pulse-green {
+      0%,100% { box-shadow: 0 0 4px var(--green); }
+      50%      { box-shadow: 0 0 14px var(--green), 0 0 28px rgba(0,255,136,0.3); }
+    }
+    @keyframes pulse-magenta {
+      0%,100% { box-shadow: 0 0 4px var(--magenta); }
+      50%      { box-shadow: 0 0 14px var(--magenta), 0 0 28px rgba(255,0,144,0.3); }
+    }
+
+    /* countdown */
+    #countdown {
+      font-size: 24px;
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan);
+      letter-spacing: 2px;
+    }
+
+    /* RTL control buttons */
+    .btn-row {
+      display: flex;
+      gap: 6px;
+    }
+    .btn {
+      flex: 1;
+      padding: 7px 4px;
+      font-family: var(--font);
+      font-size: 11px;
+      letter-spacing: 1px;
+      border: 1px solid;
+      border-radius: 2px;
+      cursor: pointer;
+      background: transparent;
+      transition: all 0.2s;
+    }
+    #btn-stop {
+      color: var(--orange);
+      border-color: var(--orange);
+    }
+    #btn-stop:hover {
+      background: rgba(255,102,0,0.15);
+      box-shadow: 0 0 10px rgba(255,102,0,0.4);
+    }
+    #btn-start {
+      color: var(--green);
+      border-color: var(--green);
+    }
+    #btn-start:hover {
+      background: rgba(0,255,136,0.1);
+      box-shadow: 0 0 10px rgba(0,255,136,0.4);
+    }
+    .btn:disabled {
+      opacity: 0.35;
+      cursor: default;
+      box-shadow: none !important;
+    }
+
+    /* band activity bars */
+    .band-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .band-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .band-label {
+      width: 30px;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+    .band-bar-wrap {
+      flex: 1;
+      height: 14px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 1px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .band-bar {
+      height: 100%;
+      width: 0%;
+      transition: width 0.6s ease;
+      border-radius: 1px;
+    }
+    .band-count {
+      width: 28px;
+      text-align: right;
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      flex-shrink: 0;
+    }
+    /* band colours */
+    .bc-40m { background: linear-gradient(90deg, var(--orange), rgba(255,102,0,0.5)); }
+    .bc-30m { background: linear-gradient(90deg, var(--yellow), rgba(255,204,0,0.5)); }
+    .bc-20m { background: linear-gradient(90deg, var(--cyan),   rgba(0,245,255,0.5)); }
+    .bc-17m { background: linear-gradient(90deg, var(--green),  rgba(0,255,136,0.5)); }
+    .bc-15m { background: linear-gradient(90deg, var(--magenta),rgba(255,0,144,0.5)); }
+    .bc-10m { background: linear-gradient(90deg, var(--red),    rgba(255,34,34,0.5)); }
+
+    .band-label.lc-40m { color: var(--orange); }
+    .band-label.lc-30m { color: var(--yellow); }
+    .band-label.lc-20m { color: var(--cyan); }
+    .band-label.lc-17m { color: var(--green); }
+    .band-label.lc-15m { color: var(--magenta); }
+    .band-label.lc-10m { color: var(--red); }
+
+    /* ── map column ──────────────────────────────────────────────────────── */
+    .map-col {
+      position: relative;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #0a0a1a;
+    }
+    .map-overlay {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(8,8,16,0.82);
+      border: 1px solid var(--dim);
+      padding: 4px 8px;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--cyan);
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    /* ── right column ────────────────────────────────────────────────────── */
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    /* spot feed */
+    .spot-feed {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .spot-table-wrap {
+      overflow-y: auto;
+      flex: 1;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #0a0a18;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0,245,255,0.55);
+      padding: 4px 4px;
+      border-bottom: 1px solid var(--dim);
+      text-align: left;
+      white-space: nowrap;
+      z-index: 1;
+    }
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: rgba(0,245,255,0.04); }
+    tbody td {
+      padding: 3px 4px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .td-call { color: var(--cyan); font-weight: bold; }
+    .td-snr  { color: var(--green); }
+    .td-dist { color: rgba(255,255,255,0.7); }
+    .td-time { color: rgba(255,255,255,0.45); }
+    .td-pwr  { color: rgba(255,255,255,0.5); }
+
+    /* DX Intel */
+    .dx-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .dx-card {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(0,245,255,0.1);
+      border-radius: 2px;
+      padding: 8px;
+    }
+    .dx-card label {
+      display: block;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0,245,255,0.45);
+      margin-bottom: 4px;
+    }
+    .dx-val {
+      font-size: 16px;
+      color: var(--cyan);
+      text-shadow: 0 0 6px rgba(0,245,255,0.4);
+    }
+    .dx-sub {
+      font-size: 10px;
+      color: rgba(255,255,255,0.4);
+      margin-top: 2px;
+    }
+    .dx-val.magenta { color: var(--magenta); text-shadow: 0 0 6px rgba(255,0,144,0.4); }
+    .dx-val.green   { color: var(--green);   text-shadow: 0 0 6px rgba(0,255,136,0.4); }
+    .dx-val.orange  { color: var(--orange);  text-shadow: 0 0 6px rgba(255,102,0,0.4); }
+
+    /* ── new-spot flash ──────────────────────────────────────────────────── */
+    @keyframes row-flash {
+      from { background: rgba(0,245,255,0.18); }
+      to   { background: transparent; }
+    }
+    .row-new { animation: row-flash 1.2s ease-out forwards; }
+
+    /* ── scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,245,255,0.25); border-radius: 2px; }
+
+    /* ── connection indicator ────────────────────────────────────────────── */
+    #conn-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    #conn-dot.disconnected { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ──────────────────────────────────────────────────────────────── -->
+<header>
+  <div class="hdr-brand">
+    <h1>▓▓ CYBERSDR // {{ my_call }} ▓▓</h1>
+    <div class="subtitle">HF PROPAGATION MONITOR · WSPR · {{ my_grid }}</div>
+  </div>
+  <div class="hdr-right">
+    <div id="utc-clock">--:--:-- UTC</div>
+    <div class="hdr-label">COORDINATED UNIVERSAL TIME</div>
+  </div>
+</header>
+
+<!-- ── MAIN GRID ────────────────────────────────────────────────────────────── -->
+<div class="main-grid">
+
+  <!-- ── LEFT COLUMN ─────────────────────────────────────────────────────── -->
+  <div class="left-col">
+
+    <!-- Decoder Status -->
+    <div class="panel">
+      <div class="panel-hdr">DECODER STATUS <div id="conn-dot"></div></div>
+      <div class="panel-body">
+        <div id="state-badge" class="badge-IDLE">IDLE</div>
+
+        <div class="status-grid">
+          <div class="stat-item">
+            <label>BAND</label>
+            <div class="val" id="status-band">--</div>
+          </div>
+          <div class="stat-item">
+            <label>DIAL FREQ</label>
+            <div class="val" id="status-freq">-- MHz</div>
+          </div>
+          <div class="stat-item" style="grid-column:span 2">
+            <label>NEXT SLOT IN</label>
+            <div id="countdown">--:--</div>
+          </div>
+          <div class="stat-item">
+            <label>RTL-SDR HOST</label>
+            <div class="val big">{{ "100.66.32.23" }}</div>
+          </div>
+          <div class="stat-item">
+            <label>PORT</label>
+            <div class="val">1234</div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn" id="btn-stop" onclick="stopDecoder()">⏸ DISCONNECT RTL</button>
+          <button class="btn" id="btn-start" onclick="startDecoder()" disabled>▶ RECONNECT RTL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Band Activity -->
+    <div class="panel" style="flex:1">
+      <div class="panel-hdr">BAND ACTIVITY · TODAY</div>
+      <div class="panel-body">
+        <div class="band-list" id="band-list">
+          <div class="band-row" id="band-row-40m">
+            <span class="band-label lc-40m">40m</span>
+            <div class="band-bar-wrap"><div class="band-bar bc-40m" id="bar-40m"></div></div>
+            <span class="band-count" id="cnt-40m">0</span>
+          </div>
+          <div class="band-row" id="band-row-30m">
+            <span class="band-label lc-30m">30m</span>
+            <div class="band-bar-wrap"><div class="band-bar bc-30m" id="bar-30m"></div></div>
+            <span class="band-count" id="cnt-30m">0</span>
+          </div>
+          <div class="band-row" id="band-row-20m">
+            <span class="band-label lc-20m">20m</span>
+            <div class="band-bar-wrap"><div class="band-bar bc-20m" id="bar-20m"></div></div>
+            <span class="band-count" id="cnt-20m">0</span>
+          </div>
+          <div class="band-row" id="band-row-17m">
+            <span class="band-label lc-17m">17m</span>
+            <div class="band-bar-wrap"><div class="band-bar bc-17m" id="bar-17m"></div></div>
+            <span class="band-count" id="cnt-17m">0</span>
+          </div>
+          <div class="band-row" id="band-row-15m">
+            <span class="band-label lc-15m">15m</span>
+            <div class="band-bar-wrap"><div class="band-bar bc-15m" id="bar-15m"></div></div>
+            <span class="band-count" id="cnt-15m">0</span>
+          </div>
+          <div class="band-row" id="band-row-10m">
+            <span class="band-label lc-10m">10m</span>
+            <div class="band-bar-wrap"><div class="band-bar bc-10m" id="bar-10m"></div></div>
+            <span class="band-count" id="cnt-10m">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /left-col -->
+
+  <!-- ── MAP COLUMN ──────────────────────────────────────────────────────── -->
+  <div class="map-col panel">
+    <div id="map"></div>
+    <div class="map-overlay">WORLD MAP · HF PROPAGATION PATHS</div>
+  </div>
+
+  <!-- ── RIGHT COLUMN ────────────────────────────────────────────────────── -->
+  <div class="right-col">
+
+    <!-- Live Decode Feed -->
+    <div class="panel spot-feed">
+      <div class="panel-hdr">LIVE DECODE FEED</div>
+      <div class="spot-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>TIME</th>
+              <th>CALL</th>
+              <th>GRID</th>
+              <th>BAND</th>
+              <th>SNR</th>
+              <th>KM</th>
+              <th>dBm</th>
+            </tr>
+          </thead>
+          <tbody id="spot-tbody">
+            <tr><td colspan="7" style="text-align:center;color:rgba(0,245,255,0.3);padding:20px">
+              AWAITING FIRST DECODE…
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DX Intel -->
+    <div class="panel">
+      <div class="panel-hdr">DX INTEL · TODAY</div>
+      <div class="panel-body">
+        <div class="dx-grid">
+          <div class="dx-card">
+            <label>FARTHEST DX</label>
+            <div class="dx-val" id="dx-farthest-km">--- km</div>
+            <div class="dx-sub" id="dx-farthest-call">---</div>
+          </div>
+          <div class="dx-card">
+            <label>BEST SNR</label>
+            <div class="dx-val magenta" id="dx-best-snr">--- dB</div>
+            <div class="dx-sub" id="dx-best-snr-call">---</div>
+          </div>
+          <div class="dx-card">
+            <label>UNIQUE CALLS</label>
+            <div class="dx-val green" id="dx-unique">0</div>
+            <div class="dx-sub">stations heard</div>
+          </div>
+          <div class="dx-card">
+            <label>TOTAL SPOTS</label>
+            <div class="dx-val orange" id="dx-total">0</div>
+            <div class="dx-sub">decoded today</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /right-col -->
+
+</div><!-- /main-grid -->
+
+<!-- ── SCRIPTS ──────────────────────────────────────────────────────────────── -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const MY_CALL = "{{ my_call }}";
+  const MY_GRID = "{{ my_grid }}";
+</script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

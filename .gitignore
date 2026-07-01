@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.db
+data/
+static/icons/icon-192.png
+static/icons/icon-512.png

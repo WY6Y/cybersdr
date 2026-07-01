@@ -5,15 +5,14 @@ services:
     build: .
     container_name: cybersdr
     restart: unless-stopped
-    ports:
-      - "5020:5020"
+    network_mode: host
     volumes:
       - sdr_data:/data
       - ./.env:/app/.env:ro
     environment:
       - TZ=America/Chicago
-    # RTL-SDR device not needed inside the container — we use rtl_tcp://
-    # to reach the remote RTL-SDR Blog V4 on ECHOLINK-MACHINE (100.66.32.23:1234)
+    # network_mode: host gives the container access to tailscale0 so it can
+    # reach rtl_tcp on ECHOLINK-MACHINE (100.66.32.23:1234)
 
 volumes:
   sdr_data:

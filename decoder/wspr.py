@@ -19,6 +19,7 @@ from typing import Callable, Optional
 import db
 from decoder.grid import distance_km, bearing
 from decoder.upload import upload_to_wsprnet
+from decoder.capture import capture_wspr
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ BANDS = [
     {"name": "10m", "dial": 28.1246},
 ]
 
-WAV_PATH = "/tmp/wspr_capture.wav"
+WAV_PATH = "/tmp/wspr_capture.wav"  # must match decoder/capture.py
 
 
 class WSPRDecoder:
@@ -59,12 +60,12 @@ class WSPRDecoder:
         self.state: str = "IDLE"
         self.paused: bool = False
         self._band_idx: int = 0
-        self._gain: int = int(os.getenv("RTL_GAIN", "20"))
+        self._gain_tenths: int = int(os.getenv("RTL_GAIN", "20")) * 10  # convert to tenths-of-dB
         self._do_upload: bool = os.getenv("WSPRNET_UPLOAD", "true").lower() == "true"
 
         self._lock = threading.Lock()
         self._stop = threading.Event()
-        self._rtl_proc: Optional[subprocess.Popen] = None
+        self._capture_active: bool = False
 
     # ── public interface ──────────────────────────────────────────────────────
 
@@ -83,14 +84,9 @@ class WSPRDecoder:
         }
 
     def pause(self) -> None:
-        """Stop the current recording and hold the loop until resume() is called."""
+        """Signal the capture loop to stop at the next opportunity."""
         with self._lock:
             self.paused = True
-            if self._rtl_proc and self._rtl_proc.poll() is None:
-                try:
-                    self._rtl_proc.terminate()
-                except OSError:
-                    pass
         self._set_state("PAUSED")
         logger.info("[WSPRDecoder] Paused — RTL-SDR released")
 
@@ -204,97 +200,27 @@ class WSPRDecoder:
 
     def _record(self, band: dict) -> bool:
         """
-        Pipe rtl_fm → sox for exactly 120 s, writing WAV to WAV_PATH.
+        Capture 120 s of IQ from rtl_tcp, USB-demodulate in Python, write WAV.
         Returns True on success.
         """
-        rtl_url = f"rtl_tcp://{self.rtl_host}:{self.rtl_port}"
         freq_hz = int(band["dial"] * 1e6)
-
-        rtl_cmd = [
-            "rtl_fm",
-            "-d", rtl_url,
-            "-M", "usb",
-            "-f", str(freq_hz),
-            "-s", "12000",
-            "-r", "12000",
-            "-g", str(self._gain),
-        ]
-        sox_cmd = [
-            "sox",
-            "-t", "raw",
-            "-r", "12000",
-            "-e", "signed-integer",
-            "-b", "16",
-            "-c", "1",
-            "-",
-            "-t", "wav",
-            WAV_PATH,
-            "trim", "0", "120",
-        ]
-
-        logger.debug("[WSPRDecoder] rtl_fm cmd: %s", " ".join(rtl_cmd))
-
+        with self._lock:
+            self._capture_active = True
         try:
-            rtl_proc = subprocess.Popen(
-                rtl_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+            ok = capture_wspr(
+                host=self.rtl_host,
+                port=self.rtl_port,
+                freq_hz=freq_hz,
+                duration_s=120,
+                gain_tenths=self._gain_tenths,
             )
-            with self._lock:
-                self._rtl_proc = rtl_proc
-
-            sox_proc = subprocess.Popen(
-                sox_cmd,
-                stdin=rtl_proc.stdout,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            rtl_proc.stdout.close()  # allow rtl_proc to receive SIGPIPE when sox exits
-
-            # Wait up to 135 s for sox to finish (120 s audio + startup headroom)
-            deadline = time.monotonic() + 135
-            while time.monotonic() < deadline:
-                if self.paused or self._stop.is_set():
-                    rtl_proc.terminate()
-                    sox_proc.terminate()
-                    rtl_proc.wait(timeout=5)
-                    sox_proc.wait(timeout=5)
-                    with self._lock:
-                        self._rtl_proc = None
-                    return False
-                if sox_proc.poll() is not None:
-                    break
-                time.sleep(1)
-            else:
-                logger.warning("[WSPRDecoder] sox timed out — killing")
-                sox_proc.kill()
-
-            # Ensure rtl_fm is stopped
-            if rtl_proc.poll() is None:
-                rtl_proc.terminate()
-                try:
-                    rtl_proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    rtl_proc.kill()
-
-            sox_proc.wait(timeout=5)
-            with self._lock:
-                self._rtl_proc = None
-
-            rc = sox_proc.returncode
-            if rc != 0:
-                logger.warning("[WSPRDecoder] sox exited %d", rc)
-            return rc == 0
-
-        except FileNotFoundError as exc:
-            logger.error("[WSPRDecoder] Command not found: %s", exc)
-            return False
         except Exception as exc:
-            logger.error("[WSPRDecoder] Record error: %s", exc)
-            return False
+            logger.error("[WSPRDecoder] Capture error: %s", exc)
+            ok = False
         finally:
             with self._lock:
-                self._rtl_proc = None
+                self._capture_active = False
+        return ok
 
     def _decode(self, band: dict) -> list:
         """

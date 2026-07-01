@@ -4,7 +4,7 @@ db.py — SQLite helpers for CyberSDR spot storage.
 import os
 import sqlite3
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 DB_PATH = os.getenv("DB_PATH", "/data/cybersdr.db")
 
@@ -137,3 +137,70 @@ def get_today_stats(my_grid: str) -> dict:
         "farthest_dx": dict(farthest) if farthest else None,
         "best_snr": dict(best_snr) if best_snr else None,
     }
+
+
+def get_band_conditions(my_grid: str, hours: int = 2) -> list:
+    """
+    Return per-band openness stats for the last *hours* hours.
+
+    Each dict in the returned list contains:
+        band, spot_count, avg_snr, max_distance_km, unique_calls,
+        score (0-100), condition (DARK/WEAK/FAIR/OPEN/STRONG), color (hex)
+    """
+    BANDS = ["40m", "30m", "20m", "17m", "15m", "10m"]
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+
+    results = []
+    with get_conn() as conn:
+        for band in BANDS:
+            row = conn.execute(
+                """
+                SELECT
+                    COUNT(*)             AS spot_count,
+                    AVG(snr)             AS avg_snr,
+                    MAX(distance_km)     AS max_distance_km,
+                    COUNT(DISTINCT call) AS unique_calls
+                FROM spots
+                WHERE band = ? AND timestamp >= ?
+                """,
+                (band, since),
+            ).fetchone()
+
+            spot_count   = row["spot_count"] or 0
+            avg_snr      = row["avg_snr"]
+            max_dist     = row["max_distance_km"]
+            unique_calls = row["unique_calls"] or 0
+
+            if spot_count == 0:
+                score = 0
+            else:
+                score = min(100, spot_count * 4 + max(0, (avg_snr or -30) + 30) * 1.5)
+
+            if score == 0:
+                condition = "DARK"
+                color = "#333344"
+            elif score <= 20:
+                condition = "WEAK"
+                color = "#ff6600"
+            elif score <= 50:
+                condition = "FAIR"
+                color = "#ffaa00"
+            elif score <= 80:
+                condition = "OPEN"
+                color = "#00f5ff"
+            else:
+                condition = "STRONG"
+                color = "#00ff88"
+
+            results.append({
+                "band":            band,
+                "spot_count":      spot_count,
+                "avg_snr":         round(avg_snr, 1) if avg_snr is not None else None,
+                "max_distance_km": round(max_dist) if max_dist is not None else None,
+                "unique_calls":    unique_calls,
+                "score":           round(score, 1),
+                "condition":       condition,
+                "color":           color,
+            })
+
+    return results

@@ -81,6 +81,36 @@
       margin-top: 1px;
     }
 
+    /* ── tab switcher ────────────────────────────────────────────────────── */
+    .tab-btns {
+      display: flex;
+      gap: 6px;
+    }
+    .tab-btn {
+      font-family: var(--font);
+      font-size: 11px;
+      letter-spacing: 2px;
+      padding: 5px 14px;
+      border: 1px solid rgba(0,245,255,0.3);
+      border-radius: 2px;
+      background: transparent;
+      color: rgba(0,245,255,0.5);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover {
+      background: rgba(0,245,255,0.06);
+      color: var(--cyan);
+      border-color: var(--cyan);
+    }
+    .tab-btn.active {
+      background: rgba(0,245,255,0.1);
+      color: var(--cyan);
+      border-color: var(--cyan);
+      box-shadow: 0 0 8px rgba(0,245,255,0.25);
+      text-shadow: 0 0 6px var(--cyan);
+    }
+
     .hdr-right {
       text-align: right;
     }
@@ -96,7 +126,7 @@
       color: rgba(0,245,255,0.45);
     }
 
-    /* ── layout ──────────────────────────────────────────────────────────── */
+    /* ── WSPR layout ─────────────────────────────────────────────────────── */
     .main-grid {
       display: grid;
       grid-template-columns: 268px 1fr 320px;
@@ -294,6 +324,51 @@
     .band-label.lc-15m { color: var(--magenta); }
     .band-label.lc-10m { color: var(--red); }
 
+    /* ── band conditions panel ───────────────────────────────────────────── */
+    .cond-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .cond-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .cond-band-name {
+      width: 28px;
+      font-size: 10px;
+      flex-shrink: 0;
+      color: rgba(0,245,255,0.5);
+    }
+    .cond-bar-wrap {
+      flex: 0 0 72px;
+      height: 10px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 1px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .cond-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: 1px;
+      transition: width 0.6s ease, background-color 0.4s ease;
+    }
+    .cond-label {
+      width: 42px;
+      font-size: 9px;
+      letter-spacing: 1px;
+      flex-shrink: 0;
+      font-weight: bold;
+    }
+    .cond-stats {
+      font-size: 9px;
+      color: rgba(255,255,255,0.38);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
     /* ── map column ──────────────────────────────────────────────────────── */
     .map-col {
       position: relative;
@@ -424,6 +499,223 @@
       transition: background 0.3s;
     }
     #conn-dot.disconnected { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+    /* ── WEFAX tab layout ────────────────────────────────────────────────── */
+    #content-wefax {
+      display: none;
+      height: calc(100vh - 52px);
+      padding: 8px;
+      gap: 8px;
+      grid-template-columns: 260px 1fr;
+      grid-template-rows: 1fr auto;
+    }
+    #content-wefax.active {
+      display: grid;
+    }
+
+    .wefax-ctrl-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      grid-row: 1 / 3;
+    }
+
+    .wefax-image-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .wefax-gallery-panel {
+      /* fixed-ish height for gallery row */
+    }
+
+    /* WEFAX controls */
+    .wf-field {
+      margin-bottom: 10px;
+    }
+    .wf-field label {
+      display: block;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0,245,255,0.5);
+      margin-bottom: 4px;
+    }
+    .wf-select {
+      width: 100%;
+      font-family: var(--font);
+      font-size: 11px;
+      background: rgba(0,0,0,0.5);
+      color: var(--cyan);
+      border: 1px solid rgba(0,245,255,0.3);
+      border-radius: 2px;
+      padding: 5px 6px;
+      cursor: pointer;
+      appearance: none;
+    }
+    .wf-select:focus {
+      outline: none;
+      border-color: var(--cyan);
+      box-shadow: 0 0 6px rgba(0,245,255,0.25);
+    }
+
+    /* WEFAX start/stop button */
+    #wf-btn {
+      width: 100%;
+      padding: 9px 0;
+      font-family: var(--font);
+      font-size: 12px;
+      letter-spacing: 2px;
+      border-radius: 2px;
+      border: 1px solid var(--green);
+      color: var(--green);
+      background: rgba(0,255,136,0.06);
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 10px;
+    }
+    #wf-btn:hover:not(:disabled) {
+      background: rgba(0,255,136,0.14);
+      box-shadow: 0 0 12px rgba(0,255,136,0.4);
+    }
+    #wf-btn.stopping {
+      border-color: var(--orange);
+      color: var(--orange);
+      background: rgba(255,102,0,0.08);
+    }
+    #wf-btn.stopping:hover {
+      background: rgba(255,102,0,0.16);
+      box-shadow: 0 0 12px rgba(255,102,0,0.4);
+    }
+    #wf-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    /* WEFAX status badge */
+    #wf-state-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      border-radius: 2px;
+      border: 1px solid rgba(0,245,255,0.2);
+      color: rgba(0,245,255,0.5);
+      margin-bottom: 8px;
+    }
+    .wf-badge-IDLE     { color: rgba(0,245,255,0.45) !important; border-color: rgba(0,245,255,0.15) !important; }
+    .wf-badge-PHASING  {
+      color: var(--orange) !important; border-color: var(--orange) !important;
+      animation: pulse-orange 1.4s ease-in-out infinite;
+    }
+    .wf-badge-RECEIVING {
+      color: var(--green) !important; border-color: var(--green) !important;
+      animation: pulse-green 1.2s ease-in-out infinite;
+    }
+    .wf-badge-DONE     { color: var(--cyan) !important; border-color: var(--cyan) !important; }
+    .wf-badge-ERROR    { color: var(--red)  !important; border-color: var(--red)  !important; }
+
+    @keyframes pulse-orange {
+      0%,100% { box-shadow: 0 0 4px rgba(255,102,0,0.4); }
+      50%      { box-shadow: 0 0 14px rgba(255,102,0,0.7); }
+    }
+
+    .wf-stat-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      padding: 2px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .wf-stat-row .wf-stat-label {
+      color: rgba(0,245,255,0.45);
+      letter-spacing: 1px;
+    }
+    .wf-stat-row .wf-stat-val {
+      color: var(--cyan);
+    }
+
+    .wf-warn {
+      margin-top: 10px;
+      font-size: 9px;
+      color: rgba(255,102,0,0.7);
+      letter-spacing: 1px;
+      line-height: 1.5;
+      border-left: 2px solid rgba(255,102,0,0.4);
+      padding-left: 6px;
+    }
+
+    /* WEFAX live image */
+    .wefax-img-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #05050e;
+      position: relative;
+    }
+    #wf-live-img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+      display: block;
+    }
+    .wefax-img-label {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0,245,255,0.4);
+      pointer-events: none;
+    }
+
+    /* WEFAX gallery */
+    .gallery-scroll {
+      overflow-x: auto;
+      overflow-y: hidden;
+      display: flex;
+      gap: 8px;
+      padding: 4px 0;
+    }
+    .gallery-thumb {
+      flex: 0 0 auto;
+      width: 120px;
+      cursor: pointer;
+      border: 1px solid rgba(0,245,255,0.15);
+      border-radius: 2px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .gallery-thumb:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 8px rgba(0,245,255,0.3);
+    }
+    .gallery-thumb img {
+      width: 100%;
+      height: 70px;
+      object-fit: cover;
+      display: block;
+      background: #05050e;
+    }
+    .gallery-thumb-info {
+      padding: 3px 5px;
+      font-size: 8px;
+      color: rgba(0,245,255,0.5);
+      letter-spacing: 1px;
+      background: rgba(0,0,0,0.4);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .gallery-empty {
+      font-size: 10px;
+      color: rgba(0,245,255,0.25);
+      letter-spacing: 2px;
+      padding: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -434,14 +726,22 @@
     <h1>▓▓ CYBERSDR // {{ my_call }} ▓▓</h1>
     <div class="subtitle">HF PROPAGATION MONITOR · WSPR · {{ my_grid }}</div>
   </div>
+
+  <div class="tab-btns">
+    <button class="tab-btn active" id="tab-wspr"  onclick="switchTab('wspr')">◈ WSPR</button>
+    <button class="tab-btn"        id="tab-wefax" onclick="switchTab('wefax')">◈ WEFAX</button>
+  </div>
+
   <div class="hdr-right">
     <div id="utc-clock">--:--:-- UTC</div>
     <div class="hdr-label">COORDINATED UNIVERSAL TIME</div>
   </div>
 </header>
 
-<!-- ── MAIN GRID ────────────────────────────────────────────────────────────── -->
-<div class="main-grid">
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     WSPR TAB
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="content-wspr" class="main-grid">
 
   <!-- ── LEFT COLUMN ─────────────────────────────────────────────────────── -->
   <div class="left-col">
@@ -483,7 +783,7 @@
     </div>
 
     <!-- Band Activity -->
-    <div class="panel" style="flex:1">
+    <div class="panel">
       <div class="panel-hdr">BAND ACTIVITY · TODAY</div>
       <div class="panel-body">
         <div class="band-list" id="band-list">
@@ -517,6 +817,17 @@
             <div class="band-bar-wrap"><div class="band-bar bc-10m" id="bar-10m"></div></div>
             <span class="band-count" id="cnt-10m">0</span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Band Conditions -->
+    <div class="panel" id="band-cond-panel">
+      <div class="panel-hdr">BAND CONDITIONS · 2h</div>
+      <div class="panel-body" style="padding:8px 10px">
+        <div class="cond-list" id="cond-list">
+          <!-- populated by JS -->
+          <div style="font-size:9px;color:rgba(0,245,255,0.25);letter-spacing:2px">LOADING…</div>
         </div>
       </div>
     </div>
@@ -588,7 +899,80 @@
 
   </div><!-- /right-col -->
 
-</div><!-- /main-grid -->
+</div><!-- /content-wspr -->
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     WEFAX TAB
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="content-wefax">
+
+  <!-- ── Controls column ──────────────────────────────────────────────────── -->
+  <div class="wefax-ctrl-col">
+    <div class="panel" style="flex:1">
+      <div class="panel-hdr">WEFAX RECEIVE · HF WEATHER FAX</div>
+      <div class="panel-body">
+
+        <div class="wf-field">
+          <label>STATION</label>
+          <select class="wf-select" id="wf-station" onchange="wfStationChanged()">
+            <!-- populated by JS -->
+          </select>
+        </div>
+
+        <div class="wf-field">
+          <label>FREQUENCY</label>
+          <select class="wf-select" id="wf-freq">
+            <!-- populated by JS -->
+          </select>
+        </div>
+
+        <button id="wf-btn" onclick="wfToggle()">▶ START RECEIVE</button>
+
+        <div id="wf-state-badge" class="wf-badge-IDLE">IDLE</div>
+
+        <div class="wf-stat-row">
+          <span class="wf-stat-label">LINES</span>
+          <span class="wf-stat-val" id="wf-lines">---</span>
+        </div>
+        <div class="wf-stat-row">
+          <span class="wf-stat-label">ELAPSED</span>
+          <span class="wf-stat-val" id="wf-elapsed">---</span>
+        </div>
+        <div class="wf-stat-row">
+          <span class="wf-stat-label">FREQ</span>
+          <span class="wf-stat-val" id="wf-freq-display">---</span>
+        </div>
+
+        <div class="wf-warn">
+          ⚠ WSPR decoding pauses during WEFAX receive. Both use the RTL-SDR.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Live image panel ──────────────────────────────────────────────────── -->
+  <div class="panel wefax-image-panel">
+    <div class="panel-hdr">LIVE IMAGE PREVIEW</div>
+    <div class="wefax-img-wrap">
+      <span class="wefax-img-label" id="wf-img-label">IDLE — NO IMAGE</span>
+      <img id="wf-live-img" src="/api/wefax/image/current.png" alt="WEFAX live image"
+           style="display:none">
+    </div>
+  </div>
+
+  <!-- ── Gallery panel ─────────────────────────────────────────────────────── -->
+  <div class="panel wefax-gallery-panel">
+    <div class="panel-hdr">RECEIVED CHARTS</div>
+    <div class="panel-body" style="padding:8px 10px">
+      <div class="gallery-scroll" id="wf-gallery">
+        <span class="gallery-empty">NO IMAGES YET</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content-wefax -->
+
 
 <!-- ── SCRIPTS ──────────────────────────────────────────────────────────────── -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

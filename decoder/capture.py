@@ -134,18 +134,15 @@ def capture_wspr(host: str, port: int, freq_hz: int,
     # RTL-TCP streams interleaved U8 I/Q (0–255, centre = 127.4)
     raw = np.frombuffer(bytes(buf[:total_bytes]), dtype=np.uint8)
     I = raw[0::2].astype(np.float32) - 127.4
-    Q = raw[1::2].astype(np.float32) - 127.4
-    iq = I + 1j * Q  # complex baseband
 
-    # Low-pass to WSPR bandwidth (±300 Hz) then decimate 20× to 12 kHz
-    fir = _build_fir(cutoff_hz=350.0, sample_rate=SAMPLE_RATE, n_taps=255)
+    # Anti-aliasing LPF before 20× decimation.
+    # WSPR audio lives at 1400–1600 Hz; Nyquist of 12 kHz output = 6 kHz.
+    # Use 5500 Hz cutoff to pass all WSPR tones while preventing aliasing.
+    fir = _build_fir(cutoff_hz=5500.0, sample_rate=SAMPLE_RATE, n_taps=127)
 
-    # Filter both I and Q channels
-    I_f = np.convolve(iq.real, fir, mode="same")
-    Q_f = np.convolve(iq.imag, fir, mode="same")
-
-    # USB: upper sideband = I + Q  (for a zero-IF receiver tuned to carrier)
-    audio = (I_f + Q_f)[::DECIMATE]
+    # USB demodulation from IQ: for a zero-IF receiver tuned to dial frequency,
+    # upper-sideband audio = I channel (real part of complex baseband).
+    audio = np.convolve(I, fir, mode="same")[::DECIMATE]
 
     # Normalise and convert to 16-bit PCM
     peak = np.max(np.abs(audio))
@@ -160,5 +157,7 @@ def capture_wspr(host: str, port: int, freq_hz: int,
         wf.setframerate(AUDIO_RATE)
         wf.writeframes(audio_i16.tobytes())
 
-    logger.info("[capture] Wrote %d samples → %s", len(audio_i16), WAV_PATH)
+    rms = float(np.sqrt(np.mean(audio_i16.astype(np.float32)**2)))
+    logger.info("[capture] Wrote %d samples → %s  peak=%d rms=%.0f",
+                len(audio_i16), WAV_PATH, np.max(np.abs(audio_i16)), rms)
     return True

@@ -247,11 +247,10 @@ class WSPRDecoder:
             logger.error("[WSPRDecoder] Decode subprocess error: %s", exc)
             return []
 
-        if result.returncode not in (0, 1):
-            logger.warning(
-                "[WSPRDecoder] wsprd exit %d stderr=%s",
-                result.returncode, result.stderr[:200],
-            )
+        logger.info("[wsprd] exit=%d stdout=%r stderr=%r",
+                    result.returncode,
+                    result.stdout[:500],
+                    result.stderr[:300])
 
         spots = []
         for line in result.stdout.splitlines():
@@ -261,24 +260,36 @@ class WSPRDecoder:
         return spots
 
     def _parse_line(self, line: str, band: dict) -> Optional[dict]:
-        """Parse one wsprd output line; return dict or None."""
+        """Parse one wsprd output line; return dict or None.
+
+        Two output formats observed from Debian wsjtx's wsprd:
+          With date:    YYMMDD HHMM  SNR  dt  freq  drift  call  grid  power
+          Without date: ????   SNR  dt  freq  drift  call  grid  power
+        The no-date variant appears when the WAV filename has no embedded date.
+        """
         parts = line.split()
-        # Need at least: date time snr drift freq call grid power
-        if len(parts) < 8:
-            return None
-        # Skip header / separator lines (date field must start with a digit)
-        if not parts[0][0].isdigit():
+        if len(parts) < 7:
             return None
         try:
-            ts_str = parts[0] + parts[1]  # YYMMDD + HHMM
-            snr = float(parts[2])
-            drift = float(parts[3])
-            freq = float(parts[4])
-            call = parts[5]
-            grid = parts[6]
-            power = int(parts[7])
-
-            ts = datetime.strptime(ts_str, "%y%m%d%H%M").replace(tzinfo=timezone.utc)
+            if len(parts) >= 9 and parts[0][0].isdigit() and len(parts[0]) == 6:
+                # With date:  YYMMDD HHMM  SNR  dt  freq  drift  call  grid  power
+                ts   = datetime.strptime(parts[0] + parts[1], "%y%m%d%H%M").replace(tzinfo=timezone.utc)
+                snr   = float(parts[2])
+                freq  = float(parts[4])
+                drift = float(parts[5])
+                call  = parts[6]
+                grid  = parts[7]
+                power = int(parts[8])
+            else:
+                # Without date: ????  SNR  dt  freq  drift  call  grid  power
+                float(parts[1])  # raises ValueError if not numeric → skip line
+                ts    = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+                snr   = float(parts[1])
+                freq  = float(parts[3])
+                drift = float(parts[4])
+                call  = parts[5]
+                grid  = parts[6]
+                power = int(parts[7])
 
             dist = None
             brng = None

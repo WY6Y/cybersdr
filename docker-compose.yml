@@ -9,6 +9,8 @@ services:
     volumes:
       - sdr_data:/data
       - ./.env:/app/.env:ro
+      - ./templates:/app/templates:ro
+      - ./static:/app/static:ro
     environment:
       - TZ=America/Chicago
     # network_mode: host gives the container access to tailscale0 so it can

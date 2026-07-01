@@ -2,9 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#00f5ff">
   <meta name="description" content="CyberSDR — HF WSPR Propagation Monitor">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CyberSDR">
   <title>CyberSDR // {{ my_call }}</title>
   <link rel="manifest" href="/static/manifest.json">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
@@ -715,6 +718,113 @@
       color: rgba(0,245,255,0.25);
       letter-spacing: 2px;
       padding: 10px 0;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       MOBILE — ≤ 768 px
+       ════════════════════════════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+
+      /* Let the page scroll naturally — the biggest mobile fix */
+      html, body {
+        height: auto;
+        min-height: 100%;
+        overflow: auto;
+        overflow-x: hidden;
+        font-size: 14px;
+      }
+
+      /* Sticky header that wraps into 2 rows */
+      header {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: 52px;
+        padding: 8px 12px 6px;
+        gap: 4px 8px;
+        position: sticky;
+        top: 0;
+        z-index: 500;
+      }
+      .hdr-brand { order: 1; flex: 1 0 auto; }
+      .hdr-brand h1 { font-size: 14px; letter-spacing: 1px; }
+      .hdr-brand .subtitle { display: none; }
+      .hdr-right { order: 2; flex-shrink: 0; }
+      .hdr-label { display: none; }
+      #utc-clock { font-size: 12px; letter-spacing: 1px; }
+
+      /* Tabs span the full header width on the second row */
+      .tab-btns { order: 3; width: 100%; gap: 8px; }
+      .tab-btn {
+        flex: 1;
+        padding: 11px 8px;
+        font-size: 13px;
+        min-height: 44px;
+      }
+
+      /* ── WSPR tab ── */
+      .main-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        height: auto;
+        overflow: visible;
+        padding: 8px;
+        gap: 8px;
+      }
+      .left-col  { overflow: visible; }
+      .right-col { overflow: visible; }
+
+      /* Map gets a sensible fixed height — no parent to fill anymore */
+      .map-col  { height: 260px; }
+      #map      { height: 260px; }
+
+      /* Spot feed: natural height, horizontal scroll for narrow tables */
+      .spot-feed { overflow: visible; }
+      .spot-table-wrap {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 340px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Bigger tap targets for RTL control buttons */
+      .btn {
+        min-height: 44px;
+        padding: 10px 6px;
+        font-size: 12px;
+      }
+      .btn-row { gap: 8px; }
+
+      /* Band conditions: hide verbose stats text, keep bar + label */
+      .cond-stats { display: none; }
+
+      /* ── WEFAX tab ── */
+      #content-wefax {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        height: auto;
+        overflow: visible;
+        padding: 8px;
+        gap: 8px;
+      }
+      #content-wefax.active { display: flex; flex-direction: column; }
+      .wefax-ctrl-col { grid-row: unset; }
+      .wefax-image-panel { overflow: visible; }
+
+      /* Live WEFAX image: constrain height on phone */
+      .wefax-img-frame { height: 220px; }
+
+      /* WEFAX start/stop button */
+      #wefax-btn { min-height: 44px; padding: 12px; font-size: 13px; }
+
+      /* WEFAX selects — bigger tap target */
+      .wf-select { padding: 10px 8px; font-size: 13px; }
+    }
+
+    /* ─ very small phones < 390 px ─────────────────────────────────────────── */
+    @media (max-width: 390px) {
+      .hdr-brand h1 { font-size: 12px; }
+      .map-col, #map { height: 220px; }
+      .dx-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>

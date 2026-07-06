@@ -35,6 +35,7 @@ load_dotenv()
 import db
 from decoder.wspr import WSPRDecoder
 from decoder.wefax import WefaxReceiver, WEFAX_DIR, CURRENT_PNG, _1x1_PNG
+from decoder.spaceweather import SpaceWeatherPoller
 
 # ── config ────────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,9 @@ wefax = WefaxReceiver(
     rtl_port=RTL_TCP_PORT,
     on_done=decoder.resume,
 )
+
+# Space weather poller
+space_wx = SpaceWeatherPoller()
 
 # ── routes ────────────────────────────────────────────────────────────────────
 
@@ -230,6 +234,29 @@ def wefax_image_file(filename):
     return send_from_directory(WEFAX_DIR, filename)
 
 
+# ── Space weather routes ──────────────────────────────────────────────────────
+
+
+@app.route("/api/spaceweather")
+def api_spaceweather():
+    return jsonify(space_wx.get_current())
+
+
+@app.route("/api/spaceweather/khistory")
+def api_khistory():
+    return jsonify(space_wx.get_kindex_history())
+
+
+@app.route("/api/spaceweather/history")
+def api_sw_history():
+    return jsonify(db.get_space_weather_history(7))
+
+
+@app.route("/api/wspr/hourly")
+def api_wspr_hourly():
+    return jsonify(db.get_wspr_hourly_counts(48))
+
+
 # ── SSE stream ────────────────────────────────────────────────────────────────
 
 
@@ -284,6 +311,9 @@ if __name__ == "__main__":
     dec_thread = threading.Thread(target=decoder.run, name="wspr-decoder", daemon=True)
     dec_thread.start()
     logger.info("[CyberSDR] Decoder thread started")
+
+    space_wx.start()
+    logger.info("[CyberSDR] Space weather poller started")
 
     logger.info("[CyberSDR] Serving on 0.0.0.0:%d  call=%s  grid=%s", PORT, MY_CALL, MY_GRID)
     from waitress import serve

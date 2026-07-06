@@ -25,6 +25,16 @@ CREATE TABLE IF NOT EXISTS spots (
 CREATE INDEX IF NOT EXISTS idx_spots_timestamp ON spots(timestamp);
 CREATE INDEX IF NOT EXISTS idx_spots_band      ON spots(band);
 CREATE INDEX IF NOT EXISTS idx_spots_call      ON spots(call);
+
+CREATE TABLE IF NOT EXISTS space_weather (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts       TEXT NOT NULL,
+    sfi      REAL,
+    sn       REAL,
+    aindex   REAL,
+    kindex   REAL
+);
+CREATE INDEX IF NOT EXISTS idx_sw_ts ON space_weather(ts);
 """
 
 
@@ -139,6 +149,51 @@ def get_today_stats(my_grid: str) -> dict:
     }
 
 
+def insert_space_weather(data: dict) -> None:
+    """Persist one space weather reading."""
+    def sf(key):
+        try:
+            return float(data.get(key, None))
+        except (TypeError, ValueError):
+            return None
+
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO space_weather (ts, sfi, sn, aindex, kindex) VALUES (?,?,?,?,?)",
+            (data.get("fetched_at"), sf("sfi"), sf("sn"), sf("aindex"), sf("kindex")),
+        )
+
+
+def get_space_weather_history(days: int = 7) -> list:
+    """Return space weather readings for the last *days* days, oldest first."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT ts, sfi, sn, aindex, kindex FROM space_weather "
+            "WHERE ts > ? ORDER BY ts ASC",
+            (since,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_wspr_hourly_counts(hours: int = 48) -> list:
+    """Return WSPR decode counts per UTC hour for the last *hours* hours."""
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT strftime('%Y-%m-%dT%H:00:00', timestamp) AS hour,
+                   COUNT(*)                                  AS count
+            FROM spots
+            WHERE timestamp > ?
+            GROUP BY hour
+            ORDER BY hour ASC
+            """,
+            (since,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_band_conditions(my_grid: str, hours: int = 2) -> list:
     """
     Return per-band openness stats for the last *hours* hours.
@@ -147,7 +202,7 @@ def get_band_conditions(my_grid: str, hours: int = 2) -> list:
         band, spot_count, avg_snr, max_distance_km, unique_calls,
         score (0-100), condition (DARK/WEAK/FAIR/OPEN/STRONG), color (hex)
     """
-    BANDS = ["40m", "30m", "20m", "17m", "15m", "10m"]
+    BANDS = ["80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"]
     since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
     results = []

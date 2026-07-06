@@ -725,6 +725,245 @@
     }
 
     /* ════════════════════════════════════════════════════════════════════════
+       SPACE WEATHER — storm badge
+       ════════════════════════════════════════════════════════════════════════ */
+    #storm-badge {
+      display: none;
+      padding: 3px 10px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      border: 1px solid var(--red);
+      color: var(--red);
+      background: rgba(255,34,34,0.12);
+      border-radius: 2px;
+      white-space: nowrap;
+      animation: storm-flash 0.8s ease-in-out infinite;
+    }
+    #storm-badge.visible { display: inline-block; }
+    @keyframes storm-flash {
+      0%,100% { opacity: 1; box-shadow: 0 0 6px rgba(255,34,34,0.4); }
+      50%      { opacity: 0.6; box-shadow: 0 0 14px rgba(255,34,34,0.7); }
+    }
+
+    /* ── space weather mini panel (WSPR tab left column) ─────────────────── */
+    .sw-mini-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .sw-mini-tile {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(0,245,255,0.1);
+      border-radius: 2px;
+      padding: 6px 4px;
+      text-align: center;
+    }
+    .sw-mini-val {
+      font-size: 18px;
+      color: var(--cyan);
+      text-shadow: 0 0 6px rgba(0,245,255,0.4);
+      display: block;
+    }
+    .sw-mini-label {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0,245,255,0.45);
+      display: block;
+    }
+    .sw-mini-ktext {
+      font-size: 9px;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 0;
+      margin-top: 4px;
+      text-align: center;
+    }
+    .sw-updated-mini {
+      font-size: 9px;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 1px;
+      text-align: right;
+      margin-top: 2px;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       PROP TAB layout
+       ════════════════════════════════════════════════════════════════════════ */
+    #content-prop {
+      display: none;
+      height: calc(100vh - 52px);
+      padding: 8px;
+      gap: 8px;
+      grid-template-columns: 340px 1fr;
+      grid-template-rows: 1fr;
+      overflow: hidden;
+    }
+    #content-prop.active { display: grid; }
+
+    .prop-left {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+    }
+    .prop-right {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    /* KPI tiles */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .kpi-tile {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(0,245,255,0.12);
+      border-radius: 2px;
+      padding: 10px 6px 8px;
+      text-align: center;
+    }
+    .kpi-val {
+      font-size: 28px;
+      color: var(--cyan);
+      text-shadow: 0 0 10px rgba(0,245,255,0.5);
+      display: block;
+      line-height: 1;
+    }
+    .kpi-name {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--cyan);
+      display: block;
+      margin-top: 4px;
+      opacity: 0.7;
+    }
+    .kpi-sub {
+      font-size: 9px;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 1px;
+      margin-top: 3px;
+    }
+
+    /* K-index storm meter */
+    .k-meter-wrap { margin-bottom: 10px; }
+    .k-meter-hdr {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0,245,255,0.4);
+      margin-bottom: 4px;
+    }
+    .k-meter-track {
+      height: 12px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 1px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .k-meter-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 1px;
+      transition: width 0.6s ease, background-color 0.4s ease;
+    }
+    .k-meter-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: rgba(255,255,255,0.25);
+      margin-top: 2px;
+      padding: 0 1px;
+    }
+    .k-storm-text {
+      font-size: 11px;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      font-weight: bold;
+    }
+
+    /* HF band forecast table */
+    .forecast-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .forecast-table th {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(0,245,255,0.5);
+      border-bottom: 1px solid var(--dim);
+      padding: 4px 6px;
+      text-align: left;
+    }
+    .forecast-table td {
+      padding: 5px 6px;
+      font-size: 11px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .forecast-table .fc-band { color: rgba(0,245,255,0.6); }
+    .fc-excellent { color: #00ff88; }
+    .fc-good      { color: #00f5ff; }
+    .fc-fair      { color: #ffaa00; }
+    .fc-poor      { color: #ff6600; }
+    .fc-none      { color: #444455; }
+
+    /* Condition dot */
+    .fc-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    /* Extra solar data row */
+    .solar-extra {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+    .solar-extra-item {
+      font-size: 10px;
+      color: rgba(255,255,255,0.4);
+    }
+    .solar-extra-item span {
+      color: rgba(0,245,255,0.65);
+    }
+    .sw-updated-ts {
+      font-size: 9px;
+      color: rgba(255,255,255,0.2);
+      letter-spacing: 1px;
+      text-align: right;
+    }
+
+    /* Charts */
+    .chart-wrap {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .chart-wrap canvas {
+      width: 100% !important;
+      flex: 1;
+    }
+    .chart-legend {
+      display: flex;
+      gap: 14px;
+      font-size: 9px;
+      color: rgba(255,255,255,0.4);
+      letter-spacing: 1px;
+      margin-top: 4px;
+      padding: 0 4px;
+    }
+    .chart-legend span { display: flex; align-items: center; gap: 5px; }
+    .leg-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ════════════════════════════════════════════════════════════════════════
        MOBILE — ≤ 768 px
        ════════════════════════════════════════════════════════════════════════ */
     @media (max-width: 768px) {
@@ -822,6 +1061,18 @@
 
       /* WEFAX selects — bigger tap target */
       .wf-select { padding: 10px 8px; font-size: 13px; }
+
+      /* PROP tab */
+      #content-prop {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        height: auto;
+        overflow: visible;
+      }
+      #content-prop.active { display: flex; flex-direction: column; }
+      .prop-left, .prop-right { overflow: visible; }
+      .kpi-val { font-size: 22px; }
+      .chart-wrap canvas { min-height: 120px; }
     }
 
     /* ─ very small phones < 390 px ─────────────────────────────────────────── */
@@ -844,7 +1095,9 @@
   <div class="tab-btns">
     <button class="tab-btn active" id="tab-wspr"  onclick="switchTab('wspr')">◈ WSPR</button>
     <button class="tab-btn"        id="tab-wefax" onclick="switchTab('wefax')">◈ WEFAX</button>
+    <button class="tab-btn"        id="tab-prop"  onclick="switchTab('prop')">◈ PROP</button>
   </div>
+  <div id="storm-badge">⚡ K=<span id="storm-k">?</span> STORM</div>
 
   <div class="hdr-right">
     <div id="utc-clock">--:--:-- UTC</div>
@@ -956,12 +1209,40 @@
       </div>
     </div>
 
+    <!-- Space Weather Mini -->
+    <div class="panel">
+      <div class="panel-hdr">SOLAR CONDITIONS <a href="javascript:switchTab('prop')" style="margin-left:auto;font-size:9px;color:rgba(0,245,255,0.45);text-decoration:none;letter-spacing:1px">MORE ▸</a></div>
+      <div class="panel-body" style="padding:8px 10px">
+        <div class="sw-mini-grid">
+          <div class="sw-mini-tile">
+            <span class="sw-mini-val" id="mini-sfi">---</span>
+            <span class="sw-mini-label">SFI</span>
+          </div>
+          <div class="sw-mini-tile">
+            <span class="sw-mini-val" id="mini-sn">---</span>
+            <span class="sw-mini-label">SN</span>
+          </div>
+          <div class="sw-mini-tile">
+            <span class="sw-mini-val" id="mini-a">---</span>
+            <span class="sw-mini-label">A</span>
+          </div>
+          <div class="sw-mini-tile">
+            <span class="sw-mini-val" id="mini-k">---</span>
+            <span class="sw-mini-label">K</span>
+          </div>
+        </div>
+        <div class="sw-mini-ktext" id="mini-ktext">---</div>
+        <div class="sw-updated-mini" id="mini-updated">---</div>
+      </div>
+    </div>
+
   </div><!-- /left-col -->
 
   <!-- ── MAP COLUMN ──────────────────────────────────────────────────────── -->
   <div class="map-col panel">
     <div id="map"></div>
     <div class="map-overlay">WORLD MAP · HF PROPAGATION PATHS</div>
+    <div class="map-overlay" style="left:auto;right:8px;cursor:pointer;pointer-events:all" id="greyline-toggle" onclick="toggleGreyline()">🌍 GREYLINE ON</div>
   </div>
 
   <!-- ── RIGHT COLUMN ────────────────────────────────────────────────────── -->
@@ -1096,6 +1377,116 @@
   </div>
 
 </div><!-- /content-wefax -->
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     PROP TAB — Space Weather + Propagation Analysis
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="content-prop">
+
+  <!-- ── Left column: KPI + K-meter + band forecast ─────────────────────── -->
+  <div class="prop-left">
+
+    <!-- Solar KPIs -->
+    <div class="panel">
+      <div class="panel-hdr">SOLAR INDICES · REAL-TIME</div>
+      <div class="panel-body">
+        <div class="kpi-grid">
+          <div class="kpi-tile">
+            <span class="kpi-val" id="kpi-sfi">---</span>
+            <span class="kpi-name">SFI</span>
+            <div class="kpi-sub">Solar Flux</div>
+          </div>
+          <div class="kpi-tile">
+            <span class="kpi-val" id="kpi-sn">---</span>
+            <span class="kpi-name">SN</span>
+            <div class="kpi-sub">Sunspots</div>
+          </div>
+          <div class="kpi-tile">
+            <span class="kpi-val" id="kpi-a">---</span>
+            <span class="kpi-name">A</span>
+            <div class="kpi-sub">Geo Index</div>
+          </div>
+          <div class="kpi-tile">
+            <span class="kpi-val" id="kpi-k">---</span>
+            <span class="kpi-name">K</span>
+            <div class="kpi-sub" id="kpi-ktext">---</div>
+          </div>
+        </div>
+
+        <!-- K-storm meter -->
+        <div class="k-meter-wrap">
+          <div class="k-meter-hdr">GEOMAGNETIC STORM LEVEL</div>
+          <div class="k-meter-track">
+            <div class="k-meter-fill" id="k-meter-fill"></div>
+          </div>
+          <div class="k-meter-ticks">
+            <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
+            <span>5</span><span>6</span><span>7</span><span>8</span><span>9</span>
+          </div>
+          <div class="k-storm-text" id="k-storm-text" style="color:#00ff88">QUIET</div>
+        </div>
+
+        <!-- Extra solar data -->
+        <div class="solar-extra" id="solar-extra">
+          <div class="solar-extra-item">X-RAY: <span id="sx-xray">---</span></div>
+          <div class="solar-extra-item">SOLAR WIND: <span id="sx-wind">---</span> km/s</div>
+          <div class="solar-extra-item">MAG FIELD: <span id="sx-mag">---</span> nT</div>
+        </div>
+        <div class="sw-updated-ts" id="sw-updated-ts">LAST UPDATE: ---</div>
+      </div>
+    </div>
+
+    <!-- hamqsl HF Band Forecast -->
+    <div class="panel">
+      <div class="panel-hdr">HF BAND FORECAST · HAMQSL.COM</div>
+      <div class="panel-body" style="padding:6px 10px">
+        <table class="forecast-table">
+          <thead>
+            <tr>
+              <th>BAND</th>
+              <th>☀ DAY</th>
+              <th>🌙 NIGHT</th>
+            </tr>
+          </thead>
+          <tbody id="forecast-tbody">
+            <tr><td colspan="3" style="color:rgba(0,245,255,0.25);padding:12px;text-align:center;font-size:10px">LOADING…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /prop-left -->
+
+  <!-- ── Right column: charts ────────────────────────────────────────────── -->
+  <div class="prop-right">
+
+    <!-- SFI 7-day trend -->
+    <div class="panel chart-wrap">
+      <div class="panel-hdr">SFI 7-DAY TREND</div>
+      <div class="panel-body" style="flex:1;display:flex;flex-direction:column;padding:8px 10px">
+        <canvas id="sfi-chart"></canvas>
+        <div class="chart-legend">
+          <span><i class="leg-dot" style="background:#00f5ff"></i>Solar Flux Index</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- WSPR decodes vs K-index correlation -->
+    <div class="panel chart-wrap">
+      <div class="panel-hdr">WSPR DECODES vs K-INDEX · 48h CORRELATION</div>
+      <div class="panel-body" style="flex:1;display:flex;flex-direction:column;padding:8px 10px">
+        <canvas id="corr-chart"></canvas>
+        <div class="chart-legend">
+          <span><i class="leg-dot" style="background:#00ff88"></i>WSPR Decodes/hr</span>
+          <span><i class="leg-dot" style="background:#ff6600"></i>Kp Index</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /prop-right -->
+
+</div><!-- /content-prop -->
 
 
 <!-- ── SCRIPTS ──────────────────────────────────────────────────────────────── -->

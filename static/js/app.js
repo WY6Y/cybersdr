@@ -66,18 +66,13 @@ function switchTab(tab) {
   _activeTab = tab;
 
   document.getElementById('content-wspr').style.display = (tab === 'wspr') ? '' : 'none';
-  document.getElementById('content-wefax').className    = (tab === 'wefax') ? 'active' : '';
   document.getElementById('content-prop').className     = (tab === 'prop')  ? 'active' : '';
 
-  document.getElementById('tab-wspr').classList.toggle('active',  tab === 'wspr');
-  document.getElementById('tab-wefax').classList.toggle('active', tab === 'wefax');
-  document.getElementById('tab-prop').classList.toggle('active',  tab === 'prop');
+  document.getElementById('tab-wspr').classList.toggle('active', tab === 'wspr');
+  document.getElementById('tab-prop').classList.toggle('active', tab === 'prop');
 
   if (tab === 'wspr') {
     setTimeout(() => { if (window._map) window._map.invalidateSize(); }, 50);
-  }
-  if (tab === 'wefax') {
-    loadWefaxGallery();
   }
   if (tab === 'prop') {
     refreshSpaceWeather();
@@ -416,230 +411,6 @@ function startDecoder() {
     .catch(() => {});
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// WEFAX tab
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const WEFAX_STATIONS = [
-  { name: "NMG New Orleans (Gulf)",   freqs: [4.3179, 8.5039, 12.7895] },
-  { name: "NMF Boston (N Atlantic)",  freqs: [4.235,  6.3405, 9.110,  12.750] },
-  { name: "NMC Pt Reyes (Pacific)",   freqs: [4.346,  8.682,  12.786, 17.151] },
-  { name: "NMN Chesapeake (S Atl)",   freqs: [6.3405, 8.080,  12.750] },
-];
-
-let _wfState       = 'IDLE';
-let _wfPollTimer   = null;
-let _wfImageTimer  = null;
-
-// ── Build station / frequency selects ────────────────────────────────────────
-
-function initWefaxSelects() {
-  const stationSel = document.getElementById('wf-station');
-  WEFAX_STATIONS.forEach((s, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = s.name;
-    stationSel.appendChild(opt);
-  });
-  wfStationChanged();
-}
-
-function wfStationChanged() {
-  const stationSel = document.getElementById('wf-station');
-  const freqSel    = document.getElementById('wf-freq');
-  const idx = parseInt(stationSel.value, 10);
-  const station = WEFAX_STATIONS[idx];
-
-  freqSel.innerHTML = '';
-  station.freqs.forEach(f => {
-    const opt = document.createElement('option');
-    opt.value = f;
-    opt.textContent = f.toFixed(4) + ' MHz';
-    freqSel.appendChild(opt);
-  });
-}
-
-// ── Start / Stop button ───────────────────────────────────────────────────────
-
-function wfToggle() {
-  if (_wfState === 'IDLE' || _wfState === 'DONE' || _wfState === 'ERROR') {
-    wfStartReceive();
-  } else {
-    wfStopReceive();
-  }
-}
-
-function wfStartReceive() {
-  const stationSel = document.getElementById('wf-station');
-  const freqSel    = document.getElementById('wf-freq');
-  const idx        = parseInt(stationSel.value, 10);
-  const station    = WEFAX_STATIONS[idx].name;
-  const freq_mhz   = parseFloat(freqSel.value);
-
-  fetch('/api/wefax/start', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ freq_mhz, station }),
-  })
-    .then(r => r.json())
-    .then(d => {
-      if (d.ok) {
-        _wfState = d.state;
-        wfUpdateUI(d);
-        wfStartPolling();
-        wfStartImageRefresh();
-      }
-    })
-    .catch(() => {});
-}
-
-function wfStopReceive() {
-  fetch('/api/wefax/stop', { method: 'POST' })
-    .then(r => r.json())
-    .then(() => {
-      // Polling will detect the DONE/ERROR state and clean up
-    })
-    .catch(() => {});
-}
-
-// ── Status polling (while active) ────────────────────────────────────────────
-
-function wfStartPolling() {
-  wfStopPolling();
-  _wfPollTimer = setInterval(wfPollStatus, 2000);
-}
-
-function wfStopPolling() {
-  if (_wfPollTimer) { clearInterval(_wfPollTimer); _wfPollTimer = null; }
-}
-
-function wfPollStatus() {
-  fetch('/api/wefax/status')
-    .then(r => r.json())
-    .then(d => {
-      _wfState = d.state;
-      wfUpdateUI(d);
-      if (d.state === 'IDLE' || d.state === 'DONE' || d.state === 'ERROR') {
-        wfStopPolling();
-        wfStopImageRefresh();
-        if (d.state === 'DONE') loadWefaxGallery();
-      }
-    })
-    .catch(() => {});
-}
-
-// ── Live image refresh ────────────────────────────────────────────────────────
-
-function wfStartImageRefresh() {
-  wfStopImageRefresh();
-  _wfImageTimer = setInterval(wfRefreshImage, 3000);
-}
-
-function wfStopImageRefresh() {
-  if (_wfImageTimer) { clearInterval(_wfImageTimer); _wfImageTimer = null; }
-}
-
-function wfRefreshImage() {
-  if (_wfState !== 'PHASING' && _wfState !== 'RECEIVING') return;
-  const img = document.getElementById('wf-live-img');
-  img.src = '/api/wefax/image/current.png?t=' + Date.now();
-  img.style.display = 'block';
-  document.getElementById('wf-img-label').style.display = 'none';
-}
-
-// ── Update WEFAX UI from status dict ─────────────────────────────────────────
-
-function wfUpdateUI(d) {
-  const state  = d.state || 'IDLE';
-  const badge  = document.getElementById('wf-state-badge');
-  const btn    = document.getElementById('wf-btn');
-
-  // Badge
-  badge.textContent = state;
-  badge.className   = `wf-badge-${state}`;
-
-  // Button label / class
-  const active = (state === 'PHASING' || state === 'RECEIVING');
-  if (active) {
-    btn.textContent = '⏹ STOP RECEIVE';
-    btn.className   = 'stopping';
-  } else {
-    btn.textContent = '▶ START RECEIVE';
-    btn.className   = '';
-  }
-  btn.disabled = false;
-
-  // Stats
-  document.getElementById('wf-lines').textContent =
-    (d.progress_lines > 0) ? d.progress_lines : '---';
-
-  if (d.elapsed_s != null) {
-    const m = Math.floor(d.elapsed_s / 60);
-    const s = d.elapsed_s % 60;
-    document.getElementById('wf-elapsed').textContent =
-      `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  } else {
-    document.getElementById('wf-elapsed').textContent = '---';
-  }
-
-  document.getElementById('wf-freq-display').textContent =
-    d.freq_mhz ? d.freq_mhz.toFixed(4) + ' MHz' : '---';
-
-  // Image label
-  const label = document.getElementById('wf-img-label');
-  if (state === 'PHASING') {
-    label.textContent = 'PHASING — WAITING FOR START TONE…';
-    label.style.display = '';
-  } else if (state === 'RECEIVING') {
-    label.style.display = 'none';
-  } else if (state === 'DONE') {
-    label.textContent = 'RECEIVE COMPLETE';
-    label.style.display = '';
-  } else if (state === 'ERROR') {
-    label.textContent = 'ERROR — CHECK LOGS';
-    label.style.display = '';
-  } else {
-    label.textContent = 'IDLE — NO IMAGE';
-    label.style.display = '';
-    document.getElementById('wf-live-img').style.display = 'none';
-  }
-}
-
-// ── Gallery ───────────────────────────────────────────────────────────────────
-
-function loadWefaxGallery() {
-  fetch('/api/wefax/gallery')
-    .then(r => r.json())
-    .then(images => renderWefaxGallery(images))
-    .catch(() => {});
-}
-
-function renderWefaxGallery(images) {
-  const el = document.getElementById('wf-gallery');
-  if (!el) return;
-
-  if (!images || images.length === 0) {
-    el.innerHTML = '<span class="gallery-empty">NO IMAGES YET</span>';
-    return;
-  }
-
-  el.innerHTML = '';
-  images.forEach(img => {
-    const thumb = document.createElement('div');
-    thumb.className = 'gallery-thumb';
-    thumb.title = `${img.station}\n${img.timestamp}\n${img.size_kb} kB`;
-    thumb.onclick = () => window.open('/api/wefax/images/' + img.filename, '_blank');
-
-    // Format timestamp for display
-    let tsDisplay = img.timestamp ? img.timestamp.replace('T', ' ').slice(0, 16) : '';
-
-    thumb.innerHTML = `
-      <img src="/api/wefax/images/${img.filename}" alt="${img.station}" loading="lazy">
-      <div class="gallery-thumb-info">${img.station || img.filename}<br>${tsDisplay}</div>
-    `;
-    el.appendChild(thumb);
-  });
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GREYLINE — night terminator overlay on Leaflet map
@@ -1112,9 +883,6 @@ window.addEventListener('resize', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 (function init() {
-  // Populate WEFAX station selector
-  initWefaxSelects();
-
   // Load initial WSPR data
   fetch('/api/status').then(r => r.json()).then(updateStatus).catch(() => {});
   fetch('/api/stats').then(r => r.json()).then(updateStats).catch(() => {});
@@ -1123,8 +891,6 @@ window.addEventListener('resize', () => {
   fetch('/api/spots')
     .then(r => r.json())
     .then(spots => {
-      // spots are newest-first from the API; addSpotRow inserts at top so
-      // we reverse to get chronological insertion order, resulting in newest on top.
       spots.reverse().forEach(spot => {
         addSpotRow(spot);
         addSpotToMap(spot);
@@ -1132,20 +898,7 @@ window.addEventListener('resize', () => {
     })
     .catch(() => {});
 
-  // Poll initial WEFAX status (may already be active if server restarted mid-session)
-  fetch('/api/wefax/status')
-    .then(r => r.json())
-    .then(d => {
-      _wfState = d.state;
-      wfUpdateUI(d);
-      if (d.state === 'PHASING' || d.state === 'RECEIVING') {
-        wfStartPolling();
-        wfStartImageRefresh();
-      }
-    })
-    .catch(() => {});
-
-  // Space weather — fetch immediately, then poll every 5 min (done in refreshSpaceWeather interval above)
+  // Space weather — fetch immediately, then poll every 5 min
   refreshSpaceWeather();
 
   // Greyline — start after map is ready

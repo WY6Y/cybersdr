@@ -20,7 +20,6 @@ Endpoints:
     GET  /api/wefax/images/<filename>   serve past image file
 """
 
-import glob
 import json
 import logging
 import os
@@ -28,13 +27,12 @@ import queue
 import threading
 
 from dotenv import load_dotenv
-from flask import Flask, Response, jsonify, render_template, request, send_file, send_from_directory
+from flask import Flask, Response, jsonify, render_template, request
 
 load_dotenv()
 
 import db
 from decoder.wspr import WSPRDecoder
-from decoder.wefax import WefaxReceiver, WEFAX_DIR, CURRENT_PNG, _1x1_PNG
 from decoder.spaceweather import SpaceWeatherPoller
 
 # ── config ────────────────────────────────────────────────────────────────────
@@ -44,7 +42,6 @@ RTL_TCP_PORT = int(os.getenv("RTL_TCP_PORT", "1234"))
 MY_CALL = os.getenv("MY_CALL", "WY6Y")
 MY_GRID = os.getenv("MY_GRID", "EL29")
 PORT = int(os.getenv("PORT", "5020"))
-WEFAX_MAX_GALLERY = 20
 
 # ── Flask ─────────────────────────────────────────────────────────────────────
 
@@ -84,13 +81,6 @@ decoder = WSPRDecoder(
     my_call=MY_CALL,
     my_grid=MY_GRID,
     sse_push=_push,
-)
-
-# WEFAX receiver — on_done resumes the WSPR decoder after reception ends
-wefax = WefaxReceiver(
-    rtl_host=RTL_TCP_HOST,
-    rtl_port=RTL_TCP_PORT,
-    on_done=decoder.resume,
 )
 
 # Space weather poller
@@ -139,99 +129,6 @@ def decoder_stop():
 def decoder_start():
     decoder.resume()
     return jsonify({"ok": True, "state": decoder.state})
-
-
-# ── WEFAX routes ──────────────────────────────────────────────────────────────
-
-
-@app.route("/api/wefax/start", methods=["POST"])
-def wefax_start():
-    if wefax.state not in ("IDLE", "DONE", "ERROR"):
-        return jsonify({"ok": False, "error": "session already active", "state": wefax.state}), 409
-
-    data = request.get_json(force=True, silent=True) or {}
-    freq_mhz = float(data.get("freq_mhz", 8.5039))
-    station  = str(data.get("station", "Unknown"))
-
-    decoder.pause()           # free RTL-SDR for WEFAX
-    wefax.start(freq_mhz, station)
-    return jsonify({"ok": True, "state": wefax.state})
-
-
-@app.route("/api/wefax/stop", methods=["POST"])
-def wefax_stop():
-    wefax.stop()
-    # on_done callback will call decoder.resume() when the thread actually finishes
-    return jsonify({"ok": True, "state": wefax.state})
-
-
-@app.route("/api/wefax/status")
-def wefax_status():
-    return jsonify(wefax.get_status())
-
-
-@app.route("/api/wefax/image/current.png")
-def wefax_current_image():
-    """Serve the live/latest WEFAX image; return 1×1 dark PNG if none exists."""
-    no_cache = {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0",
-    }
-    if os.path.exists(CURRENT_PNG):
-        try:
-            resp = send_file(CURRENT_PNG, mimetype="image/png")
-            for k, v in no_cache.items():
-                resp.headers[k] = v
-            return resp
-        except Exception:
-            pass
-    return Response(_1x1_PNG, mimetype="image/png", headers=no_cache)
-
-
-@app.route("/api/wefax/gallery")
-def wefax_gallery():
-    """Return JSON list of archived WEFAX images, newest first."""
-    images = sorted(glob.glob(os.path.join(WEFAX_DIR, "20*.png")), reverse=True)
-    result = []
-    for path in images[:WEFAX_MAX_GALLERY]:
-        filename = os.path.basename(path)
-        try:
-            size_kb = round(os.path.getsize(path) / 1024, 1)
-        except OSError:
-            size_kb = 0
-        # Filename format: YYYYMMDD_HHMMSS_STATION.png
-        stem  = filename[:-4]
-        parts = stem.split("_", 2)
-        if len(parts) >= 3:
-            date_s, time_s, station_raw = parts[0], parts[1], parts[2]
-            station = station_raw.replace("_", " ").strip()
-            try:
-                from datetime import datetime
-                ts = datetime.strptime(date_s + time_s, "%Y%m%d%H%M%S")
-                timestamp = ts.isoformat()
-            except ValueError:
-                timestamp = ""
-        else:
-            station   = ""
-            timestamp = ""
-        result.append({
-            "filename":  filename,
-            "station":   station,
-            "timestamp": timestamp,
-            "size_kb":   size_kb,
-        })
-    return jsonify(result)
-
-
-@app.route("/api/wefax/images/<path:filename>")
-def wefax_image_file(filename):
-    """Serve a specific archived WEFAX image."""
-    # Guard against directory traversal
-    if ".." in filename or "/" in filename:
-        from flask import abort
-        abort(404)
-    return send_from_directory(WEFAX_DIR, filename)
 
 
 # ── Space weather routes ──────────────────────────────────────────────────────
@@ -303,10 +200,6 @@ def stream():
 if __name__ == "__main__":
     db.init_db()
     logger.info("[CyberSDR] DB initialised at %s", os.getenv("DB_PATH", "/data/cybersdr.db"))
-
-    # Ensure WEFAX image directory exists
-    os.makedirs(WEFAX_DIR, exist_ok=True)
-    logger.info("[CyberSDR] WEFAX image dir: %s", WEFAX_DIR)
 
     dec_thread = threading.Thread(target=decoder.run, name="wspr-decoder", daemon=True)
     dec_thread.start()

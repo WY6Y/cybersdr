@@ -25,11 +25,13 @@ logger = logging.getLogger(__name__)
 
 # WSPR dial frequencies (MHz) — USB mode, signal centred ~1500 Hz above dial
 BANDS = [
+    {"name": "80m", "dial": 3.5926},
     {"name": "40m", "dial": 7.0386},
     {"name": "30m", "dial": 10.1387},
     {"name": "20m", "dial": 14.0956},
     {"name": "17m", "dial": 18.1046},
     {"name": "15m", "dial": 21.0946},
+    {"name": "12m", "dial": 24.9246},
     {"name": "10m", "dial": 28.1246},
 ]
 

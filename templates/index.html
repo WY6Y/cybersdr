@@ -313,18 +313,22 @@
       flex-shrink: 0;
     }
     /* band colours */
+    .bc-80m { background: linear-gradient(90deg, #9966ff,       rgba(153,102,255,0.5)); }
     .bc-40m { background: linear-gradient(90deg, var(--orange), rgba(255,102,0,0.5)); }
     .bc-30m { background: linear-gradient(90deg, var(--yellow), rgba(255,204,0,0.5)); }
     .bc-20m { background: linear-gradient(90deg, var(--cyan),   rgba(0,245,255,0.5)); }
     .bc-17m { background: linear-gradient(90deg, var(--green),  rgba(0,255,136,0.5)); }
     .bc-15m { background: linear-gradient(90deg, var(--magenta),rgba(255,0,144,0.5)); }
+    .bc-12m { background: linear-gradient(90deg, #ff9933,       rgba(255,153,51,0.5)); }
     .bc-10m { background: linear-gradient(90deg, var(--red),    rgba(255,34,34,0.5)); }
 
+    .band-label.lc-80m { color: #9966ff; }
     .band-label.lc-40m { color: var(--orange); }
     .band-label.lc-30m { color: var(--yellow); }
     .band-label.lc-20m { color: var(--cyan); }
     .band-label.lc-17m { color: var(--green); }
     .band-label.lc-15m { color: var(--magenta); }
+    .band-label.lc-12m { color: #ff9933; }
     .band-label.lc-10m { color: var(--red); }
 
     /* ── band conditions panel ───────────────────────────────────────────── */
@@ -897,6 +901,11 @@
       <div class="panel-hdr">BAND ACTIVITY · TODAY</div>
       <div class="panel-body">
         <div class="band-list" id="band-list">
+          <div class="band-row" id="band-row-80m">
+            <span class="band-label lc-80m">80m</span>
+            <div class="band-bar-wrap"><div class="band-bar bc-80m" id="bar-80m"></div></div>
+            <span class="band-count" id="cnt-80m">0</span>
+          </div>
           <div class="band-row" id="band-row-40m">
             <span class="band-label lc-40m">40m</span>
             <div class="band-bar-wrap"><div class="band-bar bc-40m" id="bar-40m"></div></div>
@@ -921,6 +930,11 @@
             <span class="band-label lc-15m">15m</span>
             <div class="band-bar-wrap"><div class="band-bar bc-15m" id="bar-15m"></div></div>
             <span class="band-count" id="cnt-15m">0</span>
+          </div>
+          <div class="band-row" id="band-row-12m">
+            <span class="band-label lc-12m">12m</span>
+            <div class="band-bar-wrap"><div class="band-bar bc-12m" id="bar-12m"></div></div>
+            <span class="band-count" id="cnt-12m">0</span>
           </div>
           <div class="band-row" id="band-row-10m">
             <span class="band-label lc-10m">10m</span>

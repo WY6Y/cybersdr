@@ -170,6 +170,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      min-height: 0;
       overflow-y: auto;
       overflow-x: hidden;
     }
@@ -580,11 +581,13 @@
     #content-prop {
       display: none;
       height: calc(100vh - 52px);
+      overflow-y: auto;
+      overflow-x: hidden;
       padding: 8px;
       gap: 8px;
       grid-template-columns: 340px 1fr;
-      grid-template-rows: 1fr;
-      overflow: hidden;
+      grid-template-rows: auto;
+      align-items: start;
     }
     #content-prop.active { display: grid; }
 
@@ -592,13 +595,20 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      overflow-y: auto;
     }
     .prop-right {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      overflow: hidden;
+    }
+    .prop-right .chart-wrap {
+      height: 220px;
+      flex-shrink: 0;
+    }
+    #sfi-chart, #corr-chart {
+      width: 100%;
+      height: 160px;
+      display: block;
     }
 
     /* KPI tiles */
@@ -738,6 +748,7 @@
     .chart-wrap canvas {
       width: 100% !important;
       flex: 1;
+      min-height: 140px;
     }
     .chart-legend {
       display: flex;
@@ -828,17 +839,13 @@
       /* Band conditions: hide verbose stats text, keep bar + label */
       .cond-stats { display: none; }
 
-      /* PROP tab */
+      /* PROP tab — single-column, full-page scroll on mobile */
       #content-prop {
         grid-template-columns: 1fr;
-        grid-template-rows: auto;
         height: auto;
         overflow: visible;
       }
-      #content-prop.active { display: flex; flex-direction: column; }
-      .prop-left, .prop-right { overflow: visible; }
       .kpi-val { font-size: 22px; }
-      .chart-wrap canvas { min-height: 120px; }
     }
 
     /* ─ very small phones < 390 px ─────────────────────────────────────────── */
@@ -899,7 +906,7 @@
           </div>
           <div class="stat-item">
             <label>RTL-SDR HOST</label>
-            <div class="val big">{{ "100.66.32.23" }}</div>
+            <div class="val big" id="rtl-host">---</div>
           </div>
           <div class="stat-item">
             <label>PORT</label>

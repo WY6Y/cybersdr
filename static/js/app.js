@@ -243,6 +243,10 @@ function updateStatus(data) {
   if (data.next_decode_utc) {
     _nextDecodeUtc = data.next_decode_utc;
   }
+  if (data.rtl_host) {
+    const el = document.getElementById('rtl-host');
+    if (el) el.textContent = data.rtl_host + ':' + (data.rtl_port || 1234);
+  }
 
   // Button state
   const isPaused = data.paused;
@@ -622,8 +626,11 @@ setInterval(refreshSpaceWeather, 5 * 60 * 1000);
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function renderCharts() {
-  renderSfiChart();
-  renderCorrChart();
+  // Defer one frame so the PROP tab's layout is committed before we measure canvas sizes
+  requestAnimationFrame(() => {
+    renderSfiChart();
+    renderCorrChart();
+  });
 }
 
 // ── SFI 7-day sparkline ───────────────────────────────────────────────────────
@@ -737,13 +744,20 @@ function renderCorrChart() {
       return;
     }
 
-    // Build hour-aligned K lookup
+    // Build hour-aligned K lookup (NOAA Kp is 3-hourly; search ±3h for nearest)
     const kMap = {};
     kdata.forEach(row => {
       if (!row.time) return;
-      const hour = row.time.slice(0, 13) + ':00:00';
-      kMap[hour] = row.kp;
+      kMap[row.time.slice(0, 13) + ':00:00'] = row.kp;
     });
+    function nearestKp(hourStr) {
+      const t = new Date(hourStr + 'Z').getTime();
+      for (const delta of [0, -1, 1, -2, 2, -3, 3]) {
+        const key = new Date(t + delta * 3600000).toISOString().slice(0, 13) + ':00:00';
+        if (kMap[key] != null) return kMap[key];
+      }
+      return null;
+    }
 
     const counts = wspr.map(w => w.count);
     const maxC   = Math.max(...counts, 1);
@@ -768,7 +782,7 @@ function renderCorrChart() {
       ctx.fillRect(x, y, barW, PAD.t + H2 - y);
     });
 
-    // K-index line
+    // K-index line (using nearest 3-hour reading for each WSPR hour)
     ctx.beginPath();
     ctx.strokeStyle = '#ff6600';
     ctx.lineWidth   = 2;
@@ -777,7 +791,7 @@ function renderCorrChart() {
     let firstK = true;
     wspr.forEach((w, i) => {
       const hourKey = w.hour ? w.hour.slice(0, 13) + ':00:00' : null;
-      const kp = hourKey ? kMap[hourKey] : null;
+      const kp = hourKey ? nearestKp(hourKey) : null;
       if (kp == null) return;
       const x = xScale(i), y = yScaleK(kp);
       firstK ? (ctx.moveTo(x, y), firstK = false) : ctx.lineTo(x, y);
@@ -828,9 +842,9 @@ function renderCorrChart() {
 // ── Chart helpers ─────────────────────────────────────────────────────────────
 
 function fitCanvas(canvas) {
-  const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width  = Math.floor(rect.width)  || 400;
-  canvas.height = Math.floor(rect.height - 20) || 140;
+  // offsetWidth/Height are reliable even during tab-switch layout; getBoundingClientRect returns 0
+  canvas.width  = canvas.offsetWidth  || 400;
+  canvas.height = canvas.offsetHeight || 160;
 }
 
 function drawNoData(ctx, canvas, msg) {

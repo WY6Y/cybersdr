@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # install.sh — CyberSDR one-shot setup
-# Run as the wy6y user from /home/wy6y/cybersdr/
+# Run from the cybersdr project directory as the user that will own the service
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -75,7 +75,7 @@ WorkingDirectory=${SCRIPT_DIR}
 ExecStart=/usr/bin/docker compose up -d --remove-orphans
 ExecStop=/usr/bin/docker compose down
 ExecReload=/usr/bin/docker compose restart
-User=wy6y
+User=${USER}
 TimeoutStartSec=120
 
 [Install]
@@ -95,7 +95,7 @@ echo "  Logs:      docker compose logs -f"
 echo "  Dashboard: http://$(hostname -I | awk '{print $1}'):5020"
 echo ""
 echo "  Add to Caddy (/etc/caddy/Caddyfile):"
-echo "    sdr.wy6y.net {"
+echo "    sdr.example.com {"
 echo "      tls internal"
 echo "      reverse_proxy 127.0.0.1:5020"
 echo "    }"

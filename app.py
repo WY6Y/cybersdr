@@ -37,7 +37,7 @@ from decoder.spaceweather import SpaceWeatherPoller
 
 # ── config ────────────────────────────────────────────────────────────────────
 
-RTL_TCP_HOST = os.getenv("RTL_TCP_HOST", "100.66.32.23")
+RTL_TCP_HOST = os.getenv("RTL_TCP_HOST", "127.0.0.1")
 RTL_TCP_PORT = int(os.getenv("RTL_TCP_PORT", "1234"))
 MY_CALL = os.getenv("MY_CALL", "WY6Y")
 MY_GRID = os.getenv("MY_GRID", "EL29")
@@ -96,7 +96,10 @@ def index():
 
 @app.route("/api/status")
 def api_status():
-    return jsonify(decoder.get_status())
+    status = decoder.get_status()
+    status["rtl_host"] = RTL_TCP_HOST
+    status["rtl_port"] = RTL_TCP_PORT
+    return jsonify(status)
 
 
 @app.route("/api/spots")
@@ -116,7 +119,7 @@ def api_stats():
 
 @app.route("/api/band_conditions")
 def band_conditions():
-    return jsonify(db.get_band_conditions(os.getenv("MY_GRID", "EM15fo")))
+    return jsonify(db.get_band_conditions(MY_GRID))
 
 
 @app.route("/api/decoder/stop", methods=["POST"])

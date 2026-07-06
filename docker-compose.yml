@@ -13,8 +13,8 @@ services:
       - ./static:/app/static:ro
     environment:
       - TZ=America/Chicago
-    # network_mode: host gives the container access to tailscale0 so it can
-    # reach rtl_tcp on ECHOLINK-MACHINE (100.66.32.23:1234)
+    # network_mode: host lets the container reach rtl_tcp on any LAN/VPN host
+    # configured via RTL_TCP_HOST in .env
 
 volumes:
   sdr_data:

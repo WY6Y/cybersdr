@@ -453,10 +453,18 @@
       white-space: nowrap;
     }
     .td-call { color: var(--cyan); font-weight: bold; }
+    .td-call a { color: inherit; text-decoration: none; }
+    .td-call a:hover { text-decoration: underline; }
     .td-snr  { color: var(--green); }
     .td-dist { color: rgba(255,255,255,0.7); }
     .td-time { color: rgba(255,255,255,0.45); }
     .td-pwr  { color: rgba(255,255,255,0.5); }
+    .td-country {
+      display: block;
+      font-size: 9px;
+      color: rgba(255,255,255,0.35);
+      white-space: nowrap;
+    }
 
     /* DX Intel */
     .dx-grid {

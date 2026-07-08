@@ -34,6 +34,7 @@ load_dotenv()
 import db
 from decoder.wspr import WSPRDecoder
 from decoder.spaceweather import SpaceWeatherPoller
+from decoder.geocode import GeocodePoller
 
 # ── config ────────────────────────────────────────────────────────────────────
 
@@ -85,6 +86,9 @@ decoder = WSPRDecoder(
 
 # Space weather poller
 space_wx = SpaceWeatherPoller()
+
+# Backfills spots.country via Nominatim, throttled, off the WSPR capture path
+geo_poller = GeocodePoller()
 
 # ── routes ────────────────────────────────────────────────────────────────────
 
@@ -210,6 +214,9 @@ if __name__ == "__main__":
 
     space_wx.start()
     logger.info("[CyberSDR] Space weather poller started")
+
+    geo_poller.start()
+    logger.info("[CyberSDR] Geocode poller started")
 
     logger.info("[CyberSDR] Serving on 0.0.0.0:%d  call=%s  grid=%s", PORT, MY_CALL, MY_GRID)
     from waitress import serve

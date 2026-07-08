@@ -20,11 +20,17 @@ CREATE TABLE IF NOT EXISTS spots (
     grid        TEXT NOT NULL,
     power       INTEGER NOT NULL,
     distance_km REAL,
-    bearing     REAL
+    bearing     REAL,
+    country     TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_spots_timestamp ON spots(timestamp);
 CREATE INDEX IF NOT EXISTS idx_spots_band      ON spots(band);
 CREATE INDEX IF NOT EXISTS idx_spots_call      ON spots(call);
+
+CREATE TABLE IF NOT EXISTS geocode_cache (
+    grid    TEXT PRIMARY KEY,
+    country TEXT
+);
 
 CREATE TABLE IF NOT EXISTS space_weather (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,6 +65,10 @@ def init_db():
         os.makedirs(parent, exist_ok=True)
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        # Migration: add `country` to spots tables created before this column existed.
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(spots)")}
+        if "country" not in cols:
+            conn.execute("ALTER TABLE spots ADD COLUMN country TEXT")
 
 
 def insert_spot(spot: dict):
@@ -67,12 +77,52 @@ def insert_spot(spot: dict):
         conn.execute(
             """
             INSERT INTO spots
-                (timestamp, call, freq, band, snr, drift, grid, power, distance_km, bearing)
+                (timestamp, call, freq, band, snr, drift, grid, power, distance_km, bearing, country)
             VALUES
                 (:timestamp, :call, :freq, :band, :snr, :drift, :grid, :power,
-                 :distance_km, :bearing)
+                 :distance_km, :bearing, :country)
             """,
-            spot,
+            {**spot, "country": spot.get("country")},
+        )
+
+
+def get_cached_country(grid: str):
+    """
+    Look up a previously geocoded grid square.
+    Returns (True, country) if cached — country is "" for open ocean / no match —
+    or (False, None) if this grid has never been looked up.
+    """
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT country FROM geocode_cache WHERE grid = ?", (grid,)
+        ).fetchone()
+    return (True, row["country"]) if row else (False, None)
+
+
+def cache_country(grid: str, country: str) -> None:
+    """Remember the geocoded country for a grid square ("" = looked up, no match)."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO geocode_cache (grid, country) VALUES (?, ?)",
+            (grid, country),
+        )
+
+
+def get_ungeocoded_grids() -> list:
+    """Distinct grid squares among spots that haven't been geocoded yet."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT grid FROM spots WHERE country IS NULL"
+        ).fetchall()
+    return [r["grid"] for r in rows]
+
+
+def backfill_country(grid: str, country: str) -> None:
+    """Fill in `country` for every spot at this grid square still awaiting one."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE spots SET country = ? WHERE grid = ? AND country IS NULL",
+            (country, grid),
         )
 
 

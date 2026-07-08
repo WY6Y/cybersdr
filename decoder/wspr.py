@@ -62,7 +62,8 @@ class WSPRDecoder:
         self.state: str = "IDLE"
         self.paused: bool = False
         self._band_idx: int = 0
-        self._gain_tenths: int = int(os.getenv("RTL_GAIN", "20")) * 10  # convert to tenths-of-dB
+        self._default_gain_tenths: int = int(os.getenv("RTL_GAIN", "20")) * 10  # convert to tenths-of-dB
+        self._gain_map: dict = self._parse_gain_bands(os.getenv("RTL_GAIN_BANDS", ""))
         self._do_upload: bool = os.getenv("WSPRNET_UPLOAD", "true").lower() == "true"
 
         self._lock = threading.Lock()
@@ -70,6 +71,24 @@ class WSPRDecoder:
         self._capture_active: bool = False
 
     # ── public interface ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _parse_gain_bands(raw: str) -> dict:
+        """Parse RTL_GAIN_BANDS="40m:20,20m:25,10m:32" into {"40m": 200, "20m": 250, "10m": 320}."""
+        gain_map = {}
+        for pair in raw.split(","):
+            pair = pair.strip()
+            if not pair or ":" not in pair:
+                continue
+            band, gain = pair.split(":", 1)
+            try:
+                gain_map[band.strip()] = int(float(gain.strip()) * 10)
+            except ValueError:
+                logger.warning("[WSPRDecoder] Bad RTL_GAIN_BANDS entry: %r", pair)
+        return gain_map
+
+    def _gain_for_band(self, band_name: str) -> int:
+        return self._gain_map.get(band_name, self._default_gain_tenths)
 
     @property
     def current_band(self) -> str:
@@ -214,7 +233,7 @@ class WSPRDecoder:
                 port=self.rtl_port,
                 freq_hz=freq_hz,
                 duration_s=120,
-                gain_tenths=self._gain_tenths,
+                gain_tenths=self._gain_for_band(band["name"]),
             )
         except Exception as exc:
             logger.error("[WSPRDecoder] Capture error: %s", exc)
@@ -295,12 +314,20 @@ class WSPRDecoder:
 
             dist = None
             brng = None
+            country = None
             if len(grid) >= 4:
                 try:
                     dist = distance_km(self.my_grid, grid)
                     brng = bearing(self.my_grid, grid)
                 except Exception:
                     pass
+                # Cheap local cache read only — a live Nominatim lookup for a
+                # brand-new grid happens later via GeocodePoller so it can
+                # never delay the next capture (must start on the next even
+                # UTC minute). Known grids resolve immediately from cache.
+                cached, cached_country = db.get_cached_country(grid)
+                if cached:
+                    country = cached_country  # "" means confirmed no match (open ocean)
 
             return {
                 "timestamp": ts.isoformat(),
@@ -313,6 +340,7 @@ class WSPRDecoder:
                 "power": power,
                 "distance_km": dist,
                 "bearing": brng,
+                "country": country,
             }
         except (ValueError, IndexError):
             return None

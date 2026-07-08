@@ -94,7 +94,8 @@ def capture_wspr(host: str, port: int, freq_hz: int,
         _send_cmd(sock, CMD_SET_FREQ,        freq_hz)
         _send_cmd(sock, CMD_SET_GAIN_MODE,   1)           # manual gain
         _send_cmd(sock, CMD_SET_GAIN,        gain_tenths) # e.g. 200 = 20.0 dB
-        _send_cmd(sock, CMD_SET_AGC_MODE,    1)           # RTL AGC on
+        # No RTL2832 AGC here — it fights the fixed manual gain and is not
+        # recommended for weak-signal work (RTL-SDR Blog guidance).
 
         sock.settimeout(5)
 
@@ -121,6 +122,14 @@ def capture_wspr(host: str, port: int, freq_hz: int,
         logger.error("[capture] Socket error: %s", exc)
         return False
     finally:
+        # Leave the dongle in auto-gain mode once we're done with it, so that
+        # if SDR++ (or anything else) connects next, it doesn't inherit a
+        # band-specific manual gain left over from our last WSPR capture.
+        try:
+            sock.settimeout(2)
+            _send_cmd(sock, CMD_SET_GAIN_MODE, 0)
+        except OSError:
+            pass
         try:
             sock.close()
         except OSError:

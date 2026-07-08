@@ -13,7 +13,9 @@ A real-time WSPR decoding and propagation dashboard for amateur radio operators.
 - **Band Activity HUD** — per-band decode count, avg SNR, farthest DX, and condition score (DARK / WEAK / FAIR / OPEN / STRONG) for the past 2 hours
 - **Solar mini-panel** — SFI, SN, A-index, K-index tiles in the left column
 - **Storm badge** — flashes red in the header when Kp ≥ 4
-- **Spot table** — scrollable live log with call, band, SNR, distance, grid
+- **Spot table** — scrollable live log with call, band, SNR, distance, grid, country
+- **Callsign lookups** — click a call in the map popup or spot table to open it on QRZ or HamQTH in a new tab
+- **Country tagging** — each spot's grid square is reverse-geocoded to a country/region name (see [Callsign Lookups & Country Tagging](#callsign-lookups--country-tagging))
 - **DX Intel** — farthest DX, best SNR, unique calls, total spots for the UTC day
 - **Decoder status** — current state, band, dial frequency, countdown to next slot
 - **WSPRnet upload** — spots uploaded automatically after each decode cycle
@@ -87,10 +89,14 @@ Or use `install.sh` for a one-shot setup that also installs a systemd service.
 | `RTL_TCP_PORT` | `1234` | `rtl_tcp` port |
 | `MY_CALL` | `N0CALL` | Your callsign (used for WSPRnet upload) |
 | `MY_GRID` | `AA00aa` | Your Maidenhead grid locator (4 or 6 char) |
-| `RTL_GAIN` | `20` | Gain in dB |
+| `RTL_GAIN` | `20` | Gain in dB — fallback for any band not in `RTL_GAIN_BANDS` |
+| `RTL_GAIN_BANDS` | (see `.env.example`) | Per-band manual gain override, `band:gain,band:gain,...` in dB |
 | `WSPRNET_UPLOAD` | `true` | Upload spots to WSPRnet after each decode |
 | `PORT` | `5020` | Flask listen port |
 | `DB_PATH` | `/data/cybersdr.db` | SQLite database path (inside container) |
+| `NOMINATIM_CONTACT` | _(blank)_ | Contact email added to the Nominatim User-Agent (per their usage policy) |
+
+> **Sharing the dongle with SDR++:** only one client can hold `rtl_tcp` at a time. `POST /api/decoder/stop` fully releases the socket so another app (SDR++, etc.) can connect — CyberSDR also resets the tuner to auto-gain at the end of every capture, so the dongle is never left at a high manual gain from the last WSPR band when you switch over.
 
 ---
 
@@ -125,6 +131,17 @@ HF band conditions are derived from SFI + Kp using propagation rules — no thir
 
 ---
 
+## Callsign Lookups & Country Tagging
+
+- **QRZ / HamQTH** — clicking a callsign (map popup or spot table) opens `qrz.com/db/<call>` or `hamqth.com/<call>` in a new tab. No API key, no backend involved — a missing QRZ listing (common for DXpeditions, Antarctic bases, or exotic/rare entities) just shows QRZ's own "not found" page.
+- **Country tagging** — each spot's decoded grid square is reverse-geocoded to a country/region name via [OpenStreetMap Nominatim](https://nominatim.org/) (free, no API key). This is independent of the callsign, so it still identifies the location even when QRZ has no record for that call.
+  - Runs on its own background thread (`decoder/geocode.py` → `GeocodePoller`), polling every 15 s for spots still missing a country and backfilling `spots.country` in SQLite.
+  - Deliberately decoupled from the WSPR capture loop — a slow or rate-limited geocode lookup must never delay the next capture, which has to start on the next even UTC minute.
+  - Throttled to Nominatim's usage policy (≤1 request/sec) and cached per grid square (`geocode_cache` table) so a repeat spotter or common DX path is only looked up once.
+  - A blank country means either "not backfilled yet" (brand-new grid, resolves within ~15–30 s) or "no match" (open ocean / unmapped area — Nominatim genuinely has no boundary data there, which itself is a useful signal for a suspiciously remote low-SNR decode).
+
+---
+
 ## Caddy Config (optional HTTPS)
 
 ```
@@ -144,6 +161,7 @@ cybersdr/
 ├── db.py                   # SQLite schema + helpers
 ├── decoder/
 │   ├── capture.py          # Pure-Python rtl_tcp IQ capture + USB demod
+│   ├── geocode.py          # Nominatim reverse-geocode poller (spot country tagging)
 │   ├── grid.py             # Maidenhead grid distance/bearing
 │   ├── spaceweather.py     # NOAA/SILSO space weather poller
 │   ├── upload.py           # WSPRnet upload

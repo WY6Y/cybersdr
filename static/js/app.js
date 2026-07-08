@@ -46,6 +46,29 @@ function bandColor(band) {
   return BAND_COLORS[band] || '#aaaaaa';
 }
 
+// ── Callsign lookup links ───────────────────────────────────────────────────────
+
+// wsprd wraps a callsign in <> when it was resolved from a WSPR Type 2/3
+// hash pair rather than decoded directly (used for compound/portable calls
+// or a precise 6-char grid). "<...>" means the hash itself couldn't be
+// resolved this session — there is no real callsign to look up at all.
+function cleanCall(call) {
+  return call.replace(/^<|>$/g, '');
+}
+
+function isLookupableCall(call) {
+  const cleaned = cleanCall(call);
+  return cleaned.length > 0 && cleaned !== '...';
+}
+
+function qrzUrl(call) {
+  return `https://www.qrz.com/db/${encodeURIComponent(cleanCall(call))}`;
+}
+
+function hamqthUrl(call) {
+  return `https://www.hamqth.com/${encodeURIComponent(cleanCall(call))}`;
+}
+
 // ── UTC clock ─────────────────────────────────────────────────────────────────
 
 function tickClock() {
@@ -173,8 +196,13 @@ function addSpotToMap(spot) {
     .bindPopup(
       `<div style="font-family:monospace;font-size:12px;background:#0d0d1a;color:#b0c4cc;border:1px solid ${color};padding:6px 10px">` +
       `<b style="color:${color}">${spot.call}</b> · ${spot.grid}<br>` +
+      (spot.country ? `${spot.country}<br>` : '') +
       `Band: ${spot.band} · SNR: ${spot.snr} dB<br>` +
       `${spot.distance_km ? spot.distance_km.toLocaleString() + ' km' : 'dist?'} · ${spot.power} dBm` +
+      (isLookupableCall(spot.call)
+        ? `<br><a href="${qrzUrl(spot.call)}" target="_blank" rel="noopener noreferrer" style="color:${color}">QRZ</a>` +
+          ` · <a href="${hamqthUrl(spot.call)}" target="_blank" rel="noopener noreferrer" style="color:${color}">HamQTH</a>`
+        : '') +
       `</div>`
     );
 
@@ -206,8 +234,12 @@ function addSpotRow(spot) {
   tr.style.borderLeft = `3px solid ${color}`;
   tr.innerHTML = `
     <td class="td-time">${timeStr}</td>
-    <td class="td-call" style="color:${color}">${spot.call}</td>
-    <td>${spot.grid}</td>
+    <td class="td-call" style="color:${color}">
+      ${isLookupableCall(spot.call)
+        ? `<a href="${qrzUrl(spot.call)}" target="_blank" rel="noopener noreferrer" title="Look up ${spot.call} on QRZ">${spot.call}</a>`
+        : spot.call}
+    </td>
+    <td>${spot.grid}${spot.country ? `<span class="td-country">${spot.country}</span>` : ''}</td>
     <td style="color:${color}">${spot.band}</td>
     <td class="td-snr">${spot.snr > 0 ? '+' : ''}${spot.snr}</td>
     <td class="td-dist">${distStr}</td>
@@ -577,7 +609,18 @@ function renderSpaceWeather(d) {
   setText('sx-xray', d.xray     || '---');
   setText('sx-wind', d.solar_wind|| '---');
   setText('sx-mag',  d.mag_field || '---');
-  setText('sw-updated-ts', d.updated ? 'DATA: ' + d.updated : '---');
+  // Show NOAA observation time + our last fetch time so user can distinguish
+  // "NOAA hasn't published" from "our system hasn't checked"
+  let tsLine = d.updated ? 'DATA: ' + d.updated : 'DATA: ---';
+  if (d.fetched_at) {
+    try {
+      const fa = new Date(d.fetched_at);
+      const hh = fa.getUTCHours().toString().padStart(2, '0');
+      const mm = fa.getUTCMinutes().toString().padStart(2, '0');
+      tsLine += '  ·  FETCHED: ' + hh + ':' + mm + ' UTC';
+    } catch (_) {}
+  }
+  setText('sw-updated-ts', tsLine);
 
   // ── hamqsl band forecast table ──────────────────────────────────────────
   const FORECAST_BANDS = [

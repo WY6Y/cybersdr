@@ -7,9 +7,11 @@ A real-time WSPR decoding and propagation dashboard for amateur radio operators.
 ## Features
 
 ### WSPR Tab
-- **Live decoding** — rotates through 8 HF bands (80m → 10m), 2 min per band, 16-min full sweep
+- **Live decoding** — smart rotation across 7 HF bands (40m → 10m): weighted slots (more time on 20m), park after consecutive empty captures, night-skip 12m/10m
 - **Leaflet map** — decoded spots plotted with bearing lines from QTH; dark CARTO tiles
-- **Greyline overlay** — real-time day/night terminator computed from solar declination, updates every 60 s; toggle on/off
+- **Greyline overlay** — real-time day/night terminator; toggle on/off
+- **DX heatmap** — optional path-density + station heat layer (off by default). Time machine scrubber (last ~30 days) + per-band filter (ALL/40–10m) with window SFI/K stats. API: `/api/heatmap?hours=&band=&end=` and `/api/heatmap/meta`
+- **CSV export** — download spots (24h / 7d / all) from the live feed header
 - **Band Activity HUD** — per-band decode count, avg SNR, farthest DX, and condition score (DARK / WEAK / FAIR / OPEN / STRONG) for the past 2 hours
 - **Solar mini-panel** — SFI, SN, A-index, K-index tiles in the left column
 - **Storm badge** — flashes red in the header when Kp ≥ 4
@@ -19,6 +21,13 @@ A real-time WSPR decoding and propagation dashboard for amateur radio operators.
 - **DX Intel** — farthest DX, best SNR, unique calls, total spots for the UTC day
 - **Decoder status** — current state, band, dial frequency, countdown to next slot
 - **WSPRnet upload** — spots uploaded automatically after each decode cycle
+
+### BALLOON Tab
+- **Airborne / pico-balloon watch** — classifies fast multi-grid movers from stored WSPR history (no new decode fields required)
+- **Suspect list + track map** — plot grid tracks over time; flag watch / confirmed / dismissed
+- **Feed highlight** — suspected balloons marked amber (▲) in the live spot table and on the WSPR map
+- **Encoding hints** — Zachtek altitude≈power×300 m; WB8ELK coarse km from power index; 0/Q/1 callsigns flagged as telem packets
+- **API** — `/api/balloons`, `/api/balloons/<call>`, `POST /api/balloons/<call>/flag`
 
 ### PROP Tab
 - **Solar KPI tiles** — SFI, SN, A-index, Kp with geomagnetic storm label (G1–G5)
@@ -102,18 +111,20 @@ Or use `install.sh` for a one-shot setup that also installs a systemd service.
 
 ## Band Rotation
 
-8 bands, 2 minutes each — full sweep every 16 minutes:
+7 bands (80m skipped — poor antenna/noise ROI). With **smart rotation** (default):
 
-| Band | Dial (MHz) |
-|------|-----------|
-| 80m | 3.5926 |
-| 40m | 7.0386 |
-| 30m | 10.1387 |
-| 20m | 14.0956 |
-| 17m | 18.1046 |
-| 15m | 21.0946 |
-| 12m | 24.9246 |
-| 10m | 28.1246 |
+| Band | Dial (MHz) | Default weight |
+|------|-----------|----------------|
+| 40m | 7.0386 | 2 |
+| 30m | 10.1387 | 2 |
+| 20m | 14.0956 | **3** |
+| 17m | 18.1046 | 2 |
+| 15m | 21.0946 | 1 |
+| 12m | 24.9246 | 1 (night-park after 1 empty) |
+| 10m | 28.1246 | 1 (night-park after 1 empty) |
+
+- After `BAND_SKIP_EMPTY` (default 3) consecutive empty captures, a band is parked for `BAND_PARK_MINUTES` (default 90).
+- Set `SMART_ROTATION=false` for classic equal round-robin.
 
 ---
 

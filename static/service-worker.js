@@ -5,7 +5,7 @@
  * the dashboard shell so the UI loads even when the Pi is unreachable.
  */
 
-const CACHE_VERSION = 'cybersdr-v1';
+const CACHE_VERSION = 'cybersdr-v2';
 const SHELL_ASSETS = [
   '/',
   '/static/js/app.js',

@@ -38,6 +38,24 @@ A real-time WSPR decoding and propagation dashboard for amateur radio operators.
 
 ---
 
+## Map tiles (CARTO API key)
+
+The map uses CARTO's raster basemaps. Since 2026 CARTO stamps an
+"API KEY REQUIRED" watermark across unkeyed tiles, so **you need your own free
+key** — this project does not ship one, and keys are not transferable.
+
+Request one at <https://carto.com/basemaps/apikey> (email + domain, no account,
+arrives by email in a few minutes). The free tier is 5M tile requests a month.
+Then set it in your `.env`:
+
+```
+CARTO_KEY=cb1_your_key_here
+```
+
+Leave it blank and the map still draws, just watermarked. CARTO and
+OpenStreetMap attribution must stay visible on the map either way:
+<https://carto.com/attributions>
+
 ## Hardware
 
 | Component | Notes |

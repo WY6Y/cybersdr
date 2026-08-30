@@ -50,6 +50,9 @@ RTL_TCP_PORT = int(os.getenv("RTL_TCP_PORT", "1234"))
 MY_CALL = os.getenv("MY_CALL", "WY6Y")
 MY_GRID = os.getenv("MY_GRID", "EL29")
 PORT = int(os.getenv("PORT", "5020"))
+# CARTO basemap key — blank falls back to unkeyed tiles (watermarked).
+# Get your own free key: https://carto.com/basemaps/apikey
+CARTO_KEY = os.getenv("CARTO_KEY", "")
 
 # ── Flask ─────────────────────────────────────────────────────────────────────
 
@@ -102,7 +105,7 @@ geo_poller = GeocodePoller()
 
 @app.route("/")
 def index():
-    return render_template("index.html", my_call=MY_CALL, my_grid=MY_GRID)
+    return render_template("index.html", my_call=MY_CALL, my_grid=MY_GRID, carto_key=CARTO_KEY)
 
 
 @app.route("/api/status")

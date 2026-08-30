@@ -133,6 +133,15 @@ setInterval(updateCountdown, 1000);
 
 // ── Leaflet map ───────────────────────────────────────────────────────────────
 
+// CARTO stamps an "API KEY REQUIRED" watermark into unkeyed tiles. Set your own
+// free key (https://carto.com/basemaps/apikey) as CARTO_KEY in .env; blank keeps
+// the unkeyed URL so the map still draws, just watermarked.
+function cartoDarkUrl() {
+  const base = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+  const k = (typeof CARTO_KEY !== 'undefined' && CARTO_KEY) ? CARTO_KEY : '';
+  return k ? base + '?key=' + encodeURIComponent(k) : base;
+}
+
 const map = L.map('map', {
   center: [20, 0],
   zoom: 2,
@@ -141,7 +150,7 @@ const map = L.map('map', {
 });
 window._map = map;
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+L.tileLayer(cartoDarkUrl(), {
   attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
   subdomains: 'abcd',
   maxZoom: 19,
@@ -1513,7 +1522,7 @@ function ensureBalloonMap() {
     zoomControl: true,
   });
   window._balloonMap = _balloonMap;
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  L.tileLayer(cartoDarkUrl(), {
     attribution: '&copy; CARTO',
     subdomains: 'abcd',
     maxZoom: 19,
